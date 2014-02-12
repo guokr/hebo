@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+bin=`dirname ${0};`
+bin=`cd "$bin"; pwd`
+HEBO_HOME=`cd "$bin"; cd ..; pwd`
+
+export PATH="$bin:$PATH"
+
+PATH_OF_CONF="$HEBO_HOME/conf"
+
+usage() {
+  echo "Usage: hebo COMMAND"
+  echo "where COMMAND is one of:"
+  echo "  start     start hebo system to cron your tasks"
+  echo "  stop      stop hebo system"
+  echo "  uberjar   lein ubjerjar"
+  echo "  exec      execute a task"
+  echo "  test      test your task"
+  echo "  deploy    deploy your task to hebo system"
+  echo "  remove    remove your task from hebo system"
+  echo "  list      list all tasks in current hebo system"
+  echo "  status    check the status of your task"
+}
+
+_hebo_start() {
+  echo "start";
+}
+_hebo_stop() {
+  echo "stop";
+}
+
+_hebo_exec() {
+  echo "conf =" "$PATH_OF_CONF"
+  java -jar $HEBO_HOME/lib/hebo-*-standalone.jar -c "$PATH_OF_CONF" exec "$2"
+}
+
+_hebo_deploy() {
+  isjar=`find . -maxdepth 1 -name project.clj`
+  if [[ X"" = X"$isjar" ]]; then
+    java -jar $HEBO_HOME/lib/hebo-*-standalone.jar -c "$PATH_OF_CONF" install "$2"
+  else
+    if lein clean && lein uberjar; then
+        local jar="`pwd`/target/*-standalone.jar"
+        local jarname=`ls $jar`
+        local taskname=`java -jar $jarname -c $PATH_OF_CONF name`
+        echo "#! /usr/bin/env bash" >  $bin/$taskname
+        echo "" >>  $bin/$taskname
+        echo 'bin=`dirname ${0};`' >>  $bin/$taskname
+        echo 'conf=`cd "$bin"; cd ../conf; pwd`' >>  $bin/$taskname
+        echo "" >>  $bin/$taskname
+        echo "hadoop jar $HEBO_HOME/jars/`basename $jarname` -c" '"$conf"' '"$@"' >>  $bin/$taskname
+        chmod 777 $bin/$taskname
+        cp $jarname "$HEBO_HOME/jars"
+        $bin/$taskname "install"
+    fi
+  fi
+}
+
+_hebo_install() {
+  if lein clean && lein jar && lein uberjar && lein install; then
+    local jar="`pwd`/target/*-standalone.jar"
+    local jarname=`ls $jar`
+    cp $jarname "$HEBO_HOME/lib"
+  fi
+}
+
+showopts () {
+  while getopts ":hc:" optname
+  do
+    case "$optname" in
+      "h")
+        usage
+        ;;
+      "c")
+        echo "Option $optname has value $OPTARG"
+        PATH_OF_CONF=$OPTARG
+        ;;
+      "?")
+        echo "Unknown option $OPTARG"
+        ;;
+      ":")
+        echo "No argument value for option $OPTARG"
+        ;;
+      *)
+        echo "Unknown error while processing options"
+        ;;
+    esac
+  done
+  return $OPTIND
+}
+
+checkargs () {
+  if [ $# = 0 ]; then
+  usage
+  exit 1
+  fi
+  case $1 in
+    start)
+      _hebo_start
+      ;;
+    stop)
+      _hebo_stop
+      ;;
+    exec)
+      _hebo_exec "$@"
+      ;;
+    test)
+      _hebo_test
+      ;;
+    deploy)
+      _hebo_deploy "$@"
+      ;;
+    install)
+      _hebo_install
+      ;;
+    remove)
+      _hebo_remove
+      ;;
+    list)
+      _hebo_ls
+      ;;
+    status)
+      _hebo_status
+      ;;
+  esac
+}
+
+showopts "$@"
+argstart=$?
+checkargs "${@:$argstart}"
