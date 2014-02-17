@@ -36,7 +36,7 @@ _hebo() {
 
 _hebo_deploy() {
   cd $CUR_PATH
-  #if lein clean && lein uberjar; then
+  if lein clean && lein uberjar; then
       jar="target/*-standalone.jar"
       jarname="`ls $jar | xargs basename`"
       
@@ -55,7 +55,7 @@ EOF
       cp $CUR_PATH/target/$jarname ~/.hebo/jars/
       _hebo task remove $taskname
       _hebo task install $taskname
-  #fi
+  fi
 }
 _hebo_install() {
   if lein clean && lein uberjar && lein install; then
