@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
+
 bin=`dirname ${0};`
 bin=`cd "$bin"; pwd`
 HEBO_HOME=`cd "$bin"; cd ..; pwd`
 
+CUR_PATH=`pwd`
+
+cd $HEBO_HOME
+
 export PATH="$bin:$PATH"
 
-PATH_OF_CONF="$HEBO_HOME/conf"
+if [ ! -f ~/.hebo/lib ]; then
+  mkdir -p ~/.hebo/lib
+fi
 
+if [ ! -f ~/.hebo/jars ]; then
+  mkdir -p ~/.hebo/jars
+fi  
 usage() {
   echo "Usage: hebo COMMAND"
   echo "where COMMAND is one of:"
@@ -18,51 +28,42 @@ usage() {
   echo "  deploy    deploy your task to hebo system"
   echo "  remove    remove your task from hebo system"
   echo "  list      list all tasks in current hebo system"
-  echo "  status    check the status of your task"
 }
 
-_hebo_start() {
-  echo "start";
-}
-_hebo_stop() {
-  echo "stop";
-}
-
-_hebo_exec() {
-  echo "conf =" "$PATH_OF_CONF"
-  java -jar $HEBO_HOME/lib/hebo-*-standalone.jar -c "$PATH_OF_CONF" exec "$2"
+_hebo() {
+  hadoop jar ~/.hebo/lib/hebo-*-standalone.jar "$@" 
 }
 
 _hebo_deploy() {
-  isjar=`find . -maxdepth 1 -name project.clj`
-  if [[ X"" = X"$isjar" ]]; then
-    java -jar $HEBO_HOME/lib/hebo-*-standalone.jar -c "$PATH_OF_CONF" install "$2"
-  else
-    if lein clean && lein uberjar; then
-        local jar="`pwd`/target/*-standalone.jar"
-        local jarname=`ls $jar`
-        local taskname=`java -jar $jarname -c $PATH_OF_CONF name`
-        echo "#! /usr/bin/env bash" >  $bin/$taskname
-        echo "" >>  $bin/$taskname
-        echo 'bin=`dirname ${0};`' >>  $bin/$taskname
-        echo 'conf=`cd "$bin"; cd ../conf; pwd`' >>  $bin/$taskname
-        echo "" >>  $bin/$taskname
-        echo "hadoop jar $HEBO_HOME/jars/`basename $jarname` -c" '"$conf"' '"$@"' >>  $bin/$taskname
-        chmod 777 $bin/$taskname
-        cp $jarname "$HEBO_HOME/jars"
-        $bin/$taskname "install"
-    fi
-  fi
-}
+  cd $CUR_PATH
+  #if lein clean && lein uberjar; then
+      jar="target/*-standalone.jar"
+      jarname="`ls $jar | xargs basename`"
+      
+      cd $HEBO_HOME
+      taskname="`hadoop jar $CUR_PATH/target/$jarname name`"
+          
+      cat << 'EOF' > $bin/$taskname
+#! /usr/bin/env bash
 
+bin=`dirname ${0};`
+bin=`cd "$bin"; pwd`
+HEBO_HOME=`cd "$bin"; cd ..; pwd`
+cd $HEBO_HOME
+EOF
+      echo "hadoop jar ~/.hebo/jars/$jarname" '"$@"' >> $bin/$taskname
+      cp $CUR_PATH/target/$jarname ~/.hebo/jars/
+      _hebo task remove $taskname
+      _hebo task install $taskname
+  #fi
+}
 _hebo_install() {
-  if lein clean && lein jar && lein uberjar && lein install; then
-    local jar="`pwd`/target/*-standalone.jar"
+  if lein clean && lein uberjar && lein install; then
+    local jar="target/*-standalone.jar"
     local jarname=`ls $jar`
-    cp $jarname "$HEBO_HOME/lib"
+    cp $jarname ~/.hebo/lib
   fi
-}
-
+}  
 showopts () {
   while getopts ":hc:" optname
   do
@@ -72,7 +73,7 @@ showopts () {
         ;;
       "c")
         echo "Option $optname has value $OPTARG"
-        PATH_OF_CONF=$OPTARG
+        CONF_PATH=$OPTARG
         ;;
       "?")
         echo "Unknown option $OPTARG"
@@ -87,43 +88,23 @@ showopts () {
   done
   return $OPTIND
 }
-
 checkargs () {
   if [ $# = 0 ]; then
   usage
   exit 1
   fi
   case $1 in
-    start)
-      _hebo_start
-      ;;
-    stop)
-      _hebo_stop
-      ;;
-    exec)
-      _hebo_exec "$@"
-      ;;
-    test)
-      _hebo_test
+    start | begin | stop | exec | init | reinit | term | task | proc | list)
+      _hebo "$@"
       ;;
     deploy)
-      _hebo_deploy "$@"
+      _hebo_deploy
       ;;
     install)
       _hebo_install
-      ;;
-    remove)
-      _hebo_remove
-      ;;
-    list)
-      _hebo_ls
-      ;;
-    status)
-      _hebo_status
-      ;;
-  esac
+      ;;  
+  esac 
 }
-
 showopts "$@"
 argstart=$?
 checkargs "${@:$argstart}"

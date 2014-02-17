@@ -1,18 +1,14 @@
 (ns hebo.redis
   (:use [clojure.java.io]
-        [clojure.string :only (join split)])
-  (:require [clj-yaml.core :as yaml]
-             [taoensso.carmine :as car]))
-
-(def hebo-conf (atom ""))
-
-(defn load-yaml [path]
-  (yaml/parse-string (slurp (str path "/hebo.yaml"))))
+        [clojure.tools.logging :only [info warn error]]
+        [clojure.string :only (join split)]
+        [hebo.xml])
+  (:require [taoensso.carmine :as car]))
  
-(defn get-conn [conf]
-  (let [redis-conf (split (:redis conf) #"#")]
-    {:pool {} :spec {:uri (first redis-conf) :db (Integer. (second redis-conf))}}))
+(defn get-conn []
+  (let [ip (parse-default-name (resource "core-site.xml"))]
+    {:pool {} :spec {:uri ip :db 7}}))
 
-(defmacro redis [& body] `(car/wcar (get-conn (deref hebo-conf)) ~@body))
+(defmacro redis [& body] `(car/wcar (get-conn) ~@body))
  
  

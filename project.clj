@@ -1,7 +1,7 @@
 (defproject com.guokr/hebo "0.0.1"
   :description "hebo: a dataflow scheduler based on cascalog for hadoop tasks"
 
-  :aot [hebo.main]
+  :aot :all
   :main hebo.main
 
   :source-paths ["src/clojure"]
@@ -11,7 +11,6 @@
 
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [clj-time "0.5.0"]
-                 [clj-yaml "0.4.0"]
                  [log4j/log4j "1.2.17"]
                  [org.slf4j/slf4j-api "1.7.2"]
                  [org.slf4j/slf4j-log4j12 "1.7.2"]

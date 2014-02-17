@@ -4,16 +4,16 @@
         [clj-time.coerce :only [to-long from-long]]
         [clj-time.core :exclude [second extend]]
         [cascalog.api]
-        [hebo.redis])
+        [hebo.redis]
+        [hebo.xml])
     (:require [taoensso.carmine :as car]))
-
 ;------functions below used in macro deftask----------
 
 (def dt-formatter (formatter "yyyy-MM-dd'T'HH:mm:ssZ" (default-time-zone)))
 
 (defn trunc-datetime [datetime level]
   (let [dt (parse dt-formatter datetime)]
-    (cond
+    (cond 
       (= :yearly level) (unparse (formatter "YYYY" (default-time-zone)) dt)
       (= :monthly level) (unparse (formatter "YYYY-MM" (default-time-zone)) dt)
       (= :daily level) (unparse (formatter "YYYY-MM-dd" (default-time-zone)) dt)
@@ -36,11 +36,11 @@
 (defn get-coarse-granu
   ([granu] granu)
   ([granu1 granu2] (if (>  (granu-compare granu1 granu2) 0) granu1 granu2))  ;granu1=daily granu2=hourly --> daily
-  ([granu1 granu2 & more] (reduce get-fine-granu (get-fine-granu granu1 granu2) more)))
+  ([granu1 granu2 & more] (reduce get-coarse-granu (get-coarse-granu granu1 granu2) more)))
 
 (defn get-all-tasks []
-  ;get all tasks from redis based on task's cron key
-  (let [tasks (redis (car/keys "task:*:cron"))]
+  ;get all tasks from redis based on task's output key
+  (let [tasks (redis (car/keys "task:*:output"))]
     (if (> (count tasks) 0)
       (map #(subs % (inc (.indexOf % ":")) (.lastIndexOf % ":") ) tasks)
       [])))
@@ -69,79 +69,72 @@
 (defn symbolize-hash [hash]
   (into {} (map #(vector (first %) (vec (map symbolize (second %)))) hash)))
 
-(defn parseInt [str-or-nil]
+(defn parse-int [str-or-nil]
   (if (nil? str-or-nil)
     0 (Integer. str-or-nil)))
 
-(defn str2datetime [sdt]
+(defn parse-datetime [sdt]
   (parse dt-formatter sdt))
 
-(defn datetime2timestamp [dt]
-  (/
-    (to-long dt)
+(defn datetime-to-timestamp [dt]
+  (/ 
+    (to-long (from-time-zone dt (default-time-zone)))
     1000))
 
-(defn str2timestamp [sdt]
-  (let [dt (str2datetime sdt)]
-    (datetime2timestamp dt)))
+(defn str-to-timestamp [sdt]
+  (let [dt (parse-datetime sdt)]
+    (datetime-to-timestamp dt))) 
 
-(defn str2minutets [sdt]
-  (let [dt (str2datetime sdt)
+(defn str-to-minute-timestamp [sdt]
+  (let [dt (parse-datetime sdt)
         dt-year (year dt)
         dt-month (month dt)
         dt-day (day dt)
         dt-hour (hour dt)
         dt-minute (minute dt)]
-    (datetime2timestamp (from-time-zone (date-time dt-year dt-month dt-day dt-hour dt-minute) (default-time-zone)))))
+    (datetime-to-timestamp (from-time-zone (date-time dt-year dt-month dt-day dt-hour dt-minute) (default-time-zone)))))
 
-(defn str2hourts [sdt]
-  (let [dt (str2datetime sdt)
+(defn str-to-hour-timestamp [sdt]
+  (let [dt (parse-datetime sdt)
         dt-year (year dt)
         dt-month (month dt)
         dt-day (day dt)
         dt-hour (hour dt)]
-    (datetime2timestamp (from-time-zone (date-time dt-year dt-month dt-day dt-hour) (default-time-zone)))))
+    (datetime-to-timestamp (from-time-zone (date-time dt-year dt-month dt-day dt-hour) (default-time-zone)))))
 
-(defn str2dayts [sdt]
-  (let [dt (str2datetime sdt)
+(defn str-to-day-timestamp [sdt]
+  (let [dt (parse-datetime sdt)
         dt-year (year dt)
         dt-month (month dt)
         dt-day (day dt)]
-    (datetime2timestamp (from-time-zone (date-time dt-year dt-month dt-day) (default-time-zone)))))
+    (datetime-to-timestamp (from-time-zone (date-time dt-year dt-month dt-day) (default-time-zone)))))
 
-(defn str2monthts [sdt]
-  (let [dt (str2datetime sdt)
+(defn str-to-month-timestamp [sdt]
+  (let [dt (parse-datetime sdt)
         dt-year (year dt)
         dt-month (month dt)]
-    (datetime2timestamp (from-time-zone (date-time dt-year dt-month) (default-time-zone)))))
+    (datetime-to-timestamp (from-time-zone (date-time dt-year dt-month) (default-time-zone)))))
 
-(defn str2yearts [sdt]
-  (let [dt (str2datetime sdt)
+(defn str-to-year-timestamp [sdt]
+  (let [dt (parse-datetime sdt)
         dt-year (year dt)]
-        (datetime2timestamp (from-time-zone (date-time dt-year) (default-time-zone)))))
+    (datetime-to-timestamp (from-time-zone (date-time dt-year) (default-time-zone)))))
 
-(defn granularity [granu]
-  (cond
-    (= granu :itemized)
-      str2timestamp
-    (= granu :minutely)
-      str2minutets
-    (= granu :hourly)
-      str2hourts
-    (= granu :daily)
-      str2dayts
-    (= granu :monthly)
-      str2monthts
-    (= granu :yearly)
-      str2yearts
-      ))
+(defn granularity-is [granu]
+  (case granu
+    :itemized str-to-timestamp
+    :minutely str-to-minute-timestamp
+    :hourly   str-to-hour-timestamp
+    :daily    str-to-day-timestamp
+    :monthly  str-to-month-timestamp
+    :yearly   str-to-year-timestamp))
 
 (defmacro push-list [task-name array]
   `(map #(list 'car/rpush ~task-name (name %) ) ~array))
 
 (defmacro push-set [task-name array]
   `(map #(list 'car/sadd ~task-name (name %) ) ~array))
-
+ 
 (defmacro push-hash [task-name hash]
   `(map #(list 'car/hset ~task-name (name (key %))  (name (val %)) ) ~hash))
 
@@ -154,18 +147,23 @@
           (push-set (str "task:" taskname ":refs") (:refs taskinfo)))
         (list
           `(car/set (str "task:" ~taskname ":desc") (:desc ~taskinfo))
-          `(car/set (str "task:" ~taskname ":cron") (:cron ~taskinfo))
           `(car/set (str "task:" ~taskname ":pretask") (:pretask ~taskinfo))
+          `(car/hset "cron" ~taskname (:cron ~taskinfo))
           `(car/hset (str "task:" ~taskname ":output") "fs" (name (:fs (:output ~taskinfo))))
           `(car/hset (str "task:" ~taskname ":output") "base" (:base (:output ~taskinfo)))
           `(car/hset (str "task:" ~taskname ":output") "granularity" (name (:granularity (:output ~taskinfo))))
           `(car/hset (str "task:" ~taskname ":output") "delimiter" (name (:delimiter (:output ~taskinfo))))
-          `(car/hset (str "task:" ~taskname ":data") "granularity" (name (:granularity (:data ~taskinfo))))
-          )))))
+          `(car/hset (str "task:" ~taskname ":data") "granularity" (name (:granularity (:data ~taskinfo))))))))
+  (let [input (:input taskinfo)]
+    (if (not (nil? input))
+      (redis
+        (car/hset (str "task:" taskname ":input") "fs" (name (:fs input)))
+        (car/hset (str "task:" taskname ":input") "base" (:base input))
+        (car/hset (str "task:" taskname ":input") "granularity" (name (:granularity input)))
+        (car/hset (str "task:" taskname ":input") "delimiter" (name (:delimiter input)))))))
 
 (def cli-opts
-  [["-c" "--conf path" "path of hebo.yaml"]
-   ["-h" "--help"]])
+   [["-h" "--help"]])
 
 (defn error-msg [errors]
   (str "The following errors occurred while parsing your command:\n\n"

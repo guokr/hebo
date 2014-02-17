@@ -3,11 +3,15 @@
         [clojure.tools.cli :only [parse-opts]]
         [clojure.stacktrace :only [print-stack-trace root-cause]]
         [clojure.string :only (join split trim split-lines)]
+        [clojure.tools.logging :only [info warn error]]
         [clojurewerkz.quartzite.jobs :only [defjob]]
         [clojurewerkz.quartzite.schedule.cron :only [schedule cron-schedule]]
         [clojure.tools.logging :only (info error)]
+        [clojure.java.io :only [resource]]
         [hebo.redis]
         [hebo.util]
+        [hebo.xml]
+        [hebo.log]
         [hebo.server :only [start-server send-command]])
   (:require [taoensso.carmine :as car]
             [clojurewerkz.quartzite.scheduler :as qs]
@@ -16,9 +20,9 @@
             [clojurewerkz.quartzite.conversion :as qc])
   (:gen-class))
 
+
 (defn initiate [taskname params]
-  (redis 
-    (car/sadd (str "begin:" taskname) (join "-" params)))
+  (redis (car/sadd (str "begin:" taskname) (join "-" params)))
   (println taskname params))
 
 (defn reinitiate [taskname params]
@@ -30,7 +34,58 @@
     (car/sadd (str "begin:" taskname) (join "-" params)))
   (println taskname params))
 
+(defn task-install [arguments]
+  (doseq [taskname arguments]
+    (when-not (empty? taskname)
+      (let [cmd (trim (:out (sh taskname "info")))
+            taskinfo (try (read-string cmd) (catch Exception e (error "task" taskname "add error")))]
+        (info taskinfo)    
+        (addtask taskname taskinfo))))
+    (send-command 54319 "refresh"))
+
+(defn task-remove [arguments]
+  (info "remove task" arguments)
+  (doseq [taskname arguments]
+    (when-not (empty? taskname)
+      (if (= "all" taskname)
+        (let [task-items (redis (car/keys "task:*"))]
+          (eval (cons 'hebo.redis/redis  (for [t task-items] `(car/del ~t))))
+          (redis (car/del "cron")))
+        (let [task-items (redis (car/keys (str "task:" taskname ":*")))]
+          (eval (cons 'hebo.redis/redis  (for [t task-items] `(car/del ~t))))
+          (redis (car/hdel "cron" taskname)))))))
+
+(defn task [subcommand arguments]
+  (info subcommand arguments)
+  (case subcommand
+    "install" (task-install arguments)
+    "remove"  (task-remove arguments)
+    (warn "subcommand task only has two options: install remove")))
+
+(defn proc-install [arguments]
+  (doseq [procname arguments]
+    (when-not (empty? procname)
+      (let [cmd (trim (:out (sh procname "info")))
+            procinfo (try (read-string cmd) (catch Exception e (error "procname" procname "add error")))]
+        (redis (car/hset "cron" procname procinfo))    
+        (info procname procinfo))))
+    (send-command 54319 "refresh"))
+
+(defn proc-remove [arguments]
+  (info "remove proc" arguments)
+  (doseq [procname arguments]
+    (when-not (empty? procname)
+      (redis (car/hdel "cron" procname)))))
+
+(defn proc [subcommand arguments]
+  (info subcommand arguments)
+  (case subcommand
+    "install" (proc-install arguments)
+    "remove"  (proc-remove arguments)
+    (warn "subcommand proc only has two options: install remove")))
+
 (defn execute [taskname]
+  (info taskname "begin---end" (redis (car/sdiff (str "begin:" taskname) (str "end:" taskname))))
   (redis (car/sdiffstore (str "cur:" taskname) (str "begin:" taskname) (str "end:" taskname)))
   (loop [job (redis (car/spop (str "cur:" taskname)))]
     (when (not (nil? job))
@@ -38,7 +93,7 @@
       (if (and
             (= (redis (car/sismember (str "end:" taskname) job)) 0)
             (= (redis (car/sismember (str "run:" taskname) job)) 0)) 
-        (apply sh (flatten [taskname "-c" @hebo-conf  "exec" (split job #"-")])))
+        (apply sh (flatten [taskname "exec" (split job #"-")])))
       (redis (car/sdiffstore (str "cur:" taskname) (str "begin:" taskname) (str "end:" taskname)))
       (recur (redis (car/spop (str "cur:" taskname)))))))
 
@@ -64,34 +119,6 @@
 (defn stop []
   (send-command 54319 "exit"))
 
-(defn task-remove [arguments]
-  (if arguments
-    (doseq [tasknames arguments]
-      (let [^String taskname (str tasknames)
-            task-items (redis (car/keys (str "task:" taskname ":*")))]
-        (doseq [item task-items]
-          (redis (car/del item)))))))
-
-(defn task-install [arguments]
-  (if arguments
-    (loop [tasknames arguments]
-      (when (not (empty? tasknames))
-        (let [taskname (str (first tasknames))
-              cmd (trim (:out (sh taskname "info")))
-              taskinfo (try 
-                          (read-string cmd) 
-                          (catch Exception e 
-                            (do
-                              (prn taskname)
-                              (prn cmd)
-                              (print-stack-trace e)
-                              (print-stack-trace (root-cause e)))))]
-          (prn taskinfo)    
-          (addtask taskname taskinfo))
-        (recur (rest tasknames))))
-    ;(send-command 54319 "refresh")
-    ))
-
 (defn usage [options-summary]
   (->> [""
         "Usage: hebo [options] action"
@@ -111,11 +138,11 @@
        (join \newline)))
 
 (defn -main [& args]
+  (initLogging)
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-opts)]
     (cond
       (:help options) (exit 0 (usage summary))
       errors (exit 1 (error-msg errors)))
-      (reset! hebo-conf (load-yaml (:conf options)))
     (case (first arguments)
       "start"  (start)
       "stop"   (stop)
@@ -123,6 +150,7 @@
       "init"   (initiate (second arguments) (nnext arguments))
       "reinit" (reinitiate (second arguments) (nnext arguments))
       "term"   (terminate (second arguments) (nnext arguments))
-      "remove" (task-remove (next arguments))
-      "install" (task-install (next arguments))
+      "task"   (task (second arguments) (nnext arguments))
+      "proc"   (proc (second arguments) (nnext arguments))
+      "list"   (prn (get-all-tasks))
       (exit 1  (usage summary)))))
