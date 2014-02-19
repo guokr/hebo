@@ -6,8 +6,9 @@
   (:require [taoensso.carmine :as car]))
  
 (defn get-conn []
-  (let [ip (parse-default-name (resource "core-site.xml"))]
-    {:pool {} :spec {:uri ip :db 7}}))
+  (let [ip (parse-default-name (resource "core-site.xml"))
+        port  (Integer. (or (System/getenv "HEBO_PORT") 9876))]
+    {:pool {} :spec {:uri ip :port port}}))
 
 (defmacro redis [& body] `(car/wcar (get-conn) ~@body))
  

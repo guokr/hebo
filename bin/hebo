@@ -8,15 +8,20 @@ CUR_PATH=`pwd`
 
 cd $HEBO_HOME
 
-export PATH="$bin:$PATH"
-
 if [ ! -f ~/.hebo/lib ]; then
   mkdir -p ~/.hebo/lib
 fi
 
 if [ ! -f ~/.hebo/jars ]; then
   mkdir -p ~/.hebo/jars
-fi  
+fi
+
+if [ ! -f ~/.hebo/bin ]; then
+  mkdir -p ~/.hebo/bin
+fi 
+
+export PATH="$bin:$PATH:~/.hebo/bin"
+
 usage() {
   echo "Usage: hebo COMMAND"
   echo "where COMMAND is one of:"
@@ -43,7 +48,7 @@ _hebo_deploy() {
       cd $HEBO_HOME
       taskname="`hadoop jar $CUR_PATH/target/$jarname name`"
           
-      cat << 'EOF' > $bin/$taskname
+      cat << 'EOF' > ~/.hebo/bin/$taskname
 #! /usr/bin/env bash
 
 bin=`dirname ${0};`
@@ -51,7 +56,7 @@ bin=`cd "$bin"; pwd`
 HEBO_HOME=`cd "$bin"; cd ..; pwd`
 cd $HEBO_HOME
 EOF
-      echo "hadoop jar ~/.hebo/jars/$jarname" '"$@"' >> $bin/$taskname
+      echo "hadoop jar ~/.hebo/jars/$jarname" '"$@"' >> ~/.hebo/bin/$taskname
       cp $CUR_PATH/target/$jarname ~/.hebo/jars/
       _hebo task remove $taskname
       _hebo task install $taskname

@@ -3,7 +3,7 @@
          [clojure.string :only [split]]))
 
 (defn parse-default-name [filename]
-  (let [core-file (slurp filename); "/home/liujiacai/open-source/hadoop/conf/core-site.xml")
+  (let [core-file (slurp filename)
         props (map  #(:content %) (:content (parse-str core-file)))
         is-fsname (fn [contents]
                     (loop [contents contents]
