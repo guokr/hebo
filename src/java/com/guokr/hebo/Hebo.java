@@ -6,6 +6,7 @@ import java.io.IOException;
 import com.guokr.hebo.command.Del;
 import com.guokr.hebo.command.Get;
 import com.guokr.hebo.command.Hdel;
+import com.guokr.hebo.command.Hget;
 import com.guokr.hebo.command.Hgetall;
 import com.guokr.hebo.command.Hkeys;
 import com.guokr.hebo.command.Hset;
@@ -16,13 +17,14 @@ import com.guokr.hebo.command.Rpush;
 import com.guokr.hebo.command.Sadd;
 import com.guokr.hebo.command.Sdiff;
 import com.guokr.hebo.command.Sdiffstore;
+import com.guokr.hebo.command.Set;
 import com.guokr.hebo.command.Sismember;
 import com.guokr.hebo.command.Smembers;
 import com.guokr.hebo.command.Spop;
 import com.guokr.hebo.command.Srem;
 import com.guokr.hebo.engine.HeboEngineImpl;
-import com.guokr.hebo.server.ServerHandler;
 import com.guokr.hebo.server.HeboServer;
+import com.guokr.hebo.server.ServerHandler;
 
 public class Hebo {
 
@@ -34,8 +36,10 @@ public class Hebo {
 
         registry.add("ping", new Ping());
         registry.add("del", new Del());
+        registry.add("set", new Set());
         registry.add("get", new Get());
         registry.add("hdel", new Hdel());
+        registry.add("hget", new Hget());
         registry.add("hgetall", new Hgetall());
         registry.add("hkeys", new Hkeys());
         registry.add("hset", new Hset());

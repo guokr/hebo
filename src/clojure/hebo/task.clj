@@ -21,7 +21,7 @@
 
 (defn isrunning? [task params]
   (println "check running status of [" task params "]")
-  (if (= (redis (car/sismember (str "run:" (name task)) (join "-" params)) 0))
+  (if (= (redis (car/sismember (str "run:" (name task)) (join "-" params)) "0"))
     (do
       (redis (car/sadd (str "run:" (name task)) (join "-" params)))
       true)
@@ -65,13 +65,13 @@
         (let [f (first refs)]
           (if (nil? f)
             true
-            (if (= 1 (redis (car/sismember (str "end:" (name  f)) joint-param)))
+            (if (= "1" (redis (car/sismember (str "end:" (name  f)) joint-param)))
               (recur (rest refs))
               false))))))) 
 
 (defn check-pretask [task pretask job-param]
   "check if the previous tasks have done"
-  (if (empty? pretask) ;没有前置任务时直接返回true
+  (if (nil? pretask) ;没有前置任务时直接返回true
     true
     (let [pretask (name pretask)
           [igranu ogranu pre-job-param-num] (redis (car/hget (str "task:" pretask ":output") "granularity") 

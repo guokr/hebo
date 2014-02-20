@@ -21,7 +21,6 @@
                  [server-socket "1.0.0"]
                  [com.taoensso/carmine "2.4.4"]
                  [com.google.guava/guava-tests-jdk5 "16.0"]
-                 [com.esotericsoftware.kryo/kryo "2.22"]
                  [org.mapdb/mapdb "0.9.9"]
                  [cascalog "2.0.0"]
                  [cascalog/cascalog-more-taps "2.0.0"]

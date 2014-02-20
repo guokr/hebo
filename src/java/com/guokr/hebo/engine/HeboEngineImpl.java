@@ -2,13 +2,10 @@ package com.guokr.hebo.engine;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
 
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -19,11 +16,13 @@ import com.google.common.collect.Sets.SetView;
 import com.guokr.hebo.HeboEngine;
 import com.guokr.hebo.HeboCallback;
 
+@SuppressWarnings("unchecked")
 public class HeboEngineImpl implements HeboEngine {
 
-    private DB          dbmaker     = DBMaker.newFileDB(new File("data/hebodb")).closeOnJvmShutdown().make();
-
-    private Set<String> hashmapKeys = new HashSet<String>();
+    private DB dbmaker           = DBMaker.newFileDB(new File("data/hebodb")).closeOnJvmShutdown().transactionDisable()
+                                         .make();
+    private DB dbmakerForHashmap = DBMaker.newFileDB(new File("data/hebomapdb")).closeOnJvmShutdown()
+                                         .transactionDisable().make();
 
     private String[] keysMatching(Set<String> set, String pattern) {
         pattern = pattern.replaceAll("\\*", ".*");
@@ -42,41 +41,59 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void keys(HeboCallback callback, String pattern) {
-        // TODO Auto-generated method stub
 
-        Set<String> set = dbmaker.getAll().keySet();
-
-        callback.stringList(keysMatching(set, pattern));
+        Set<String> allKeySet = new HashSet<String>();
+        allKeySet.addAll(dbmaker.getAll().keySet());
+        allKeySet.addAll(dbmakerForHashmap.getAll().keySet());
+        callback.stringList(keysMatching(allKeySet, pattern));
 
         callback.response();
     }
 
     @Override
     public void del(HeboCallback callback, String key) {
-        // TODO Auto-generated method stub
+
         if (dbmaker.exists(key)) {
             dbmaker.delete(key);
-            if (hashmapKeys.contains(key)) {
-                hashmapKeys.remove(key);
-            }
             callback.integerValue(1);
         } else {
-            callback.integerValue(0);
+            if (dbmakerForHashmap.exists(key)) {
+                dbmakerForHashmap.delete(key);
+                callback.integerValue(1);
+            } else {
+                callback.integerValue(0);
+            }
         }
- 
         callback.response();
     }
 
     @Override
     public void get(HeboCallback callback, String key) {
-        // TODO Auto-generated method stub
-        callback.stringValue((String) dbmaker.get(key));
+
+        if (dbmaker.exists(key)) {
+            callback.stringValue(dbmaker.getAtomicString(key).get());    
+        } else {
+           callback.stringValue(null); 
+        }
+        
         callback.response();
     }
 
     @Override
+    public void set(HeboCallback callback, String key, String value) {
+        
+        if (dbmaker.exists(key)) {
+            dbmaker.getAtomicString(key).set(value);
+        } else {
+            dbmaker.createAtomicString(key, value);    
+        }
+        callback.ok();
+        callback.response();
+        
+    }
+    @Override
     public void smembers(HeboCallback callback, String key) {
-        // TODO Auto-generated method stub
+
         if (dbmaker.exists(key)) {
             Set<String> set = (Set<String>) dbmaker.get(key);
             String[] allElements = new String[set.size()];
@@ -87,21 +104,22 @@ public class HeboEngineImpl implements HeboEngine {
         }
         callback.response();
     }
+
     @Override
     public void sismember(HeboCallback callback, String key, String value) {
-        // TODO Auto-generated method stub
+
         if (dbmaker.exists(key)) {
             Set<String> set = (Set<String>) dbmaker.get(key);
             callback.integerValue(set.contains(value) ? 1 : 0);
         } else {
-            callback.error("ERR wrong number of arguments for 'sismember' command");
+            callback.integerValue(0);
         }
         callback.response();
     }
 
     @Override
     public void sadd(HeboCallback callback, String key, String value) {
-        // TODO Auto-generated method stub
+
         Set<String> set = null;
 
         if (dbmaker.exists(key)) {
@@ -117,7 +135,6 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void srem(HeboCallback callback, String key) {
-        // TODO Auto-generated method stub
 
         if (dbmaker.exists(key)) {
             callback.integerValue(0);
@@ -145,7 +162,6 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void sdiff(HeboCallback callback, String key1, String key2) {
-        // TODO Auto-generated method stub
 
         Set<String> set1 = (Set<String>) dbmaker.get(key1);
         Set<String> set2 = (Set<String>) dbmaker.get(key2);
@@ -156,7 +172,6 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void sdiffstore(HeboCallback callback, String key1, String key2, String key3) {
-        // TODO Auto-generated method stub
 
         Set<String> set1 = (Set<String>) dbmaker.get(key2);
         Set<String> set2 = (Set<String>) dbmaker.get(key3);
@@ -179,7 +194,6 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void spop(HeboCallback callback, String key) {
-        // TODO Auto-generated method stub
 
         if (dbmaker.exists(key)) {
             Set<String> set = (Set<String>) dbmaker.get(key);
@@ -189,7 +203,7 @@ public class HeboEngineImpl implements HeboEngine {
             if (iterator.hasNext()) {
                 value = iterator.next();
                 set.remove(value);
-            } 
+            }
             callback.stringValue(value);
         } else {
             callback.stringValue(null);
@@ -200,11 +214,10 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void hdel(HeboCallback callback, String key, String hkey) {
-        // TODO Auto-generated method stub
 
-        if (dbmaker.exists(key)) {
+        if (dbmakerForHashmap.exists(key)) {
 
-            HTreeMap<String, String> map = (HTreeMap<String, String>) dbmaker.get(key);
+            HTreeMap<String, String> map = (HTreeMap<String, String>) dbmakerForHashmap.get(key);
 
             callback.integerValue(map.remove(hkey) == null ? 0 : 1);
 
@@ -217,14 +230,12 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void hset(HeboCallback callback, String key, String hkey, String hvalue) {
-        // TODO Auto-generated method stub
 
         HTreeMap<String, String> map = null;
-        if (dbmaker.exists(key)) {
-            map = (HTreeMap<String, String>) dbmaker.get(key);
+        if (dbmakerForHashmap.exists(key)) {
+            map = (HTreeMap<String, String>) dbmakerForHashmap.get(key);
         } else {
-            map = dbmaker.createHashMap(key).make();
-            hashmapKeys.add(key);
+            map = dbmakerForHashmap.createHashMap(key).make();
         }
         callback.integerValue(map.put(hkey, hvalue) == null ? 1 : 0);
 
@@ -233,22 +244,22 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void hkeys(HeboCallback callback, String pattern) {
-        // TODO Auto-generated method stub
-        callback.stringList(keysMatching(hashmapKeys, pattern));
+
+        callback.stringList(keysMatching(dbmakerForHashmap.getAll().keySet(), pattern));
         callback.response();
     }
 
     @Override
     public void hgetall(HeboCallback callback, String key) {
-        // TODO Auto-generated method stub
-        if (dbmaker.exists(key)) {
-            HTreeMap<String, String> map = (HTreeMap<String, String>)dbmaker.get(key);
+
+        if (dbmakerForHashmap.exists(key)) {
+            HTreeMap<String, String> map = (HTreeMap<String, String>) dbmakerForHashmap.get(key);
             Set<String> keyset = map.keySet();
-            String result[] = new String[map.size()*2];
-            int idx=0;
-            for(String k: keyset) {
-                result[idx++]=k;
-                result[idx++]=map.get(k);
+            String result[] = new String[map.size() * 2];
+            int idx = 0;
+            for (String k : keyset) {
+                result[idx++] = k;
+                result[idx++] = map.get(k);
             }
             callback.stringList(result);
         } else {
@@ -256,9 +267,22 @@ public class HeboEngineImpl implements HeboEngine {
         }
         callback.response();
     }
+
+    @Override
+    public void hget(HeboCallback callback, String key, String hkey) {
+
+        if (dbmakerForHashmap.exists(key)) {
+            HTreeMap<String, String> map = (HTreeMap<String, String>) dbmakerForHashmap.get(key);
+            callback.stringValue(map.get(hkey));
+        } else {
+            callback.stringValue(null);
+        }
+        callback.response();
+    }
+
     @Override
     public void rpush(HeboCallback callback, String key, String value) {
-        // TODO Auto-generated method stub
+
         HTreeMap<Integer, String> map = null;
         if (dbmaker.exists(key)) {
             map = (HTreeMap<Integer, String>) dbmaker.get(key);
@@ -266,7 +290,7 @@ public class HeboEngineImpl implements HeboEngine {
             map = dbmaker.createHashMap(key).make();
         }
         map.put(map.size(), value);
-        
+
         callback.integerValue(map.size());
 
         callback.response();
@@ -274,9 +298,9 @@ public class HeboEngineImpl implements HeboEngine {
 
     @Override
     public void llen(HeboCallback callback, String key) {
-        // TODO Auto-generated method stub
+
         if (dbmaker.exists(key)) {
-            HTreeMap<Integer, String>  map = (HTreeMap<Integer, String>) dbmaker.get(key); 
+            HTreeMap<Integer, String> map = (HTreeMap<Integer, String>) dbmaker.get(key);
             callback.integerValue(map.size());
         } else {
             callback.integerValue(0);

@@ -7,6 +7,8 @@ public interface HeboEngine {
 	public void del(HeboCallback callback, String key);
 
 	public void get(HeboCallback callback, String key);
+	
+	public void set(HeboCallback callback, String key, String value);
 
 	public void smembers(HeboCallback callback, String key);
 	
@@ -30,6 +32,8 @@ public interface HeboEngine {
 	public void hkeys(HeboCallback callback, String key);
 
 	public void hgetall(HeboCallback callback, String key);
+	
+	public void hget(HeboCallback callback, String key, String hkey);
 	
 	public void rpush(HeboCallback callback, String key, String value);
 

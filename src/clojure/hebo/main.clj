@@ -92,8 +92,8 @@
     (when (not (nil? job))
       (println (flatten [taskname "exec" (split job #"-")]))
       (if (and
-            (= (redis (car/sismember (str "end:" taskname) job)) 0)
-            (= (redis (car/sismember (str "run:" taskname) job)) 0)) 
+            (= (redis (car/sismember (str "end:" taskname) job)) "0")
+            (= (redis (car/sismember (str "run:" taskname) job)) "0")) 
         (apply sh (flatten [taskname "exec" (split job #"-")])))
       (redis (car/sdiffstore (str "cur:" taskname) (str "begin:" taskname) (str "end:" taskname)))
       (recur (redis (car/spop (str "cur:" taskname)))))))
