@@ -1,5 +1,6 @@
 (ns hebo.util
   (:use [clojure.string :only [split join]]
+        [clojure.tools.logging :only (info error)]
         [clj-time.format]
         [clj-time.coerce :only [to-long from-long]]
         [clj-time.core :exclude [second extend]]
@@ -11,22 +12,23 @@
 
 (def dt-formatter (formatter "yyyy-MM-dd'T'HH:mm:ssZ" (default-time-zone)))
 
-(defn trunc-datetime [datetime level]
+(defn trunc-datetime [datetime granu]
   (let [dt (parse dt-formatter datetime)]
-    (cond 
-      (= :yearly level) (unparse (formatter "YYYY" (default-time-zone)) dt)
-      (= :monthly level) (unparse (formatter "YYYY-MM" (default-time-zone)) dt)
-      (= :daily level) (unparse (formatter "YYYY-MM-dd" (default-time-zone)) dt)
-      (= :hourly level) (unparse (formatter "YYYY-MM-dd-HH" (default-time-zone)) dt)
-      (= :minutely level) (unparse (formatter "YYYY-MM-dd-HH-mm" (default-time-zone)) dt))))
+    (case granu 
+      :yearly   (unparse (formatter "YYYY" (default-time-zone)) dt)
+      :monthly  (unparse (formatter "YYYY-MM" (default-time-zone)) dt)
+      :daily    (unparse (formatter "YYYY-MM-dd" (default-time-zone)) dt)
+      :hourly   (unparse (formatter "YYYY-MM-dd-HH" (default-time-zone)) dt)
+      :minutely (unparse (formatter "YYYY-MM-dd-HH-mm" (default-time-zone)) dt))))
 
-(def granu-level {"yearly" 4 "monthly" 3 "daily" 2 "hourly" 1})
+(def granu-level {:yearly 1 :monthly 2 :daily 3 :hourly 4 :minutely 5})
 
 (defn granu-compare [granu1 granu2]
   " > return 1;  =  return 0 ; < return -1 "
-  (if (empty? granu2)
+  (info "granu-compare" granu1 granu2)
+  (if (nil? granu2)
     0
-  (- (get granu-level granu1) (get granu-level granu2))))
+  (- (granu1 granu-level) (granu2 granu-level))))
 
 (defn get-fine-granu
   ([granu] granu)
@@ -128,39 +130,35 @@
     :daily    str-to-day-timestamp
     :monthly  str-to-month-timestamp
     :yearly   str-to-year-timestamp))
-
-(defmacro push-list [task-name array]
-  `(map #(list 'car/rpush ~task-name (name %) ) ~array))
-
-(defmacro push-set [task-name array]
-  `(map #(list 'car/sadd ~task-name (name %) ) ~array))
  
-(defmacro push-hash [task-name hash]
-  `(map #(list 'car/hset ~task-name (name (key %))  (name (val %)) ) ~hash))
-
 (defn addtask [taskname taskinfo]
-  (eval
-    (cons 'hebo.redis/redis
-      (into
-        (into
-          (push-list (str "task:" taskname ":param") (:param taskinfo))
-          (push-set (str "task:" taskname ":refs") (:refs taskinfo)))
-        (list
-          `(car/set (str "task:" ~taskname ":desc") (:desc ~taskinfo))
-          `(car/set (str "task:" ~taskname ":pretask") (:pretask ~taskinfo))
-          `(car/hset "cron" ~taskname (:cron ~taskinfo))
-          `(car/hset (str "task:" ~taskname ":output") "fs" (name (:fs (:output ~taskinfo))))
-          `(car/hset (str "task:" ~taskname ":output") "base" (:base (:output ~taskinfo)))
-          `(car/hset (str "task:" ~taskname ":output") "granularity" (name (:granularity (:output ~taskinfo))))
-          `(car/hset (str "task:" ~taskname ":output") "delimiter" (name (:delimiter (:output ~taskinfo))))
-          `(car/hset (str "task:" ~taskname ":data") "granularity" (name (:granularity (:data ~taskinfo))))))))
-  (let [input (:input taskinfo)]
-    (if (not (nil? input))
-      (redis
-        (car/hset (str "task:" taskname ":input") "fs" (name (:fs input)))
+  (redis
+    (car/set (str "task:" taskname ":desc") (:desc taskinfo))
+    (car/hset "cron" taskname (:cron taskinfo))
+    (car/hset (str "task:" taskname ":output") "fs" (:fs (:output taskinfo)))
+    (car/hset (str "task:" taskname ":output") "base" (:base (:output taskinfo)))
+    (car/hset (str "task:" taskname ":output") "granularity" (:granularity (:output taskinfo)))
+    (car/hset (str "task:" taskname ":output") "delimiter" (:delimiter (:output taskinfo)))
+    (car/hset (str "task:" taskname ":data") "granularity" (:granularity (:data taskinfo)))
+  
+    (let [input (:input taskinfo)]
+      (when-not (nil? input))
+        (car/hset (str "task:" taskname ":input") "fs" (:fs input))
         (car/hset (str "task:" taskname ":input") "base" (:base input))
-        (car/hset (str "task:" taskname ":input") "granularity" (name (:granularity input)))
-        (car/hset (str "task:" taskname ":input") "delimiter" (name (:delimiter input)))))))
+        (car/hset (str "task:" taskname ":input") "granularity" (:granularity input))
+        (car/hset (str "task:" taskname ":input") "delimiter" (:delimiter input)))
+    
+    (let [pretask (:pretask taskinfo)]
+      (if (not (nil? pretask))
+        (redis (car/set (str "task:" taskname ":pretask") pretask))))
+  
+    (let [refs (:refs taskinfo)]
+      (if (not (nil? refs))
+        (assemble-redis-cmd 
+          car/sadd (map #(vector (str "task:" taskname ":refs") %) refs))))
+        
+    (assemble-redis-cmd
+      car/rpush (map #(vector (str "task:" taskname ":param") %) (:param taskinfo)))))
 
 (def cli-opts
    [["-h" "--help"]])

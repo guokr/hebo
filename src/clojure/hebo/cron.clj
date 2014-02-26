@@ -25,6 +25,7 @@
       (sh "hebo" "exec" taskname))))
 
 (defn addcron [taskname cron]
+  (info "add-cron" taskname cron)
   (let [job     (j/build
                   (j/of-type ShellJob)
                   (j/using-job-data {:task taskname})
@@ -33,8 +34,7 @@
                   (t/with-identity (t/key taskname))
                   (t/start-now)
                   (t/with-schedule (schedule (cron-schedule cron))))]
-    (qs/schedule job trigger))
-  (info "add-cron" taskname cron))
+    (qs/schedule job trigger)))
 
 (defjob HeboDaemon [ctx]
   (info "exec HeboDaemon")
@@ -86,4 +86,5 @@
           (if (empty? tasks) crons
             (recur (rest tasks) (conj crons (redis (car/hget "cron" (first tasks))))))))]
       (addcron x y)))
-  (initdaemon))
+  ;(initdaemon)
+  )

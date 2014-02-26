@@ -53,6 +53,7 @@
                                             (car/hget input "base")
                                             (car/hget input "granularity")
                                             (car/hget input "delimiter"))]
+    (info fs fbase (keyword fgranu) fdelimiter)    
     [fs fbase (keyword fgranu) fdelimiter]))
 
 
@@ -69,82 +70,78 @@
               (recur (rest refs))
               false))))))) 
 
-(defn check-pretask [task pretask job-param]
+(defn check-pretask [task pretask task-param]
   "check if the previous tasks have done"
   (if (nil? pretask) ;没有前置任务时直接返回true
     true
     (let [pretask (name pretask)
-          [igranu ogranu pre-job-param-num] (redis (car/hget (str "task:" pretask ":output") "granularity") 
-                                                   (car/hget (str "task:" task ":output") "granularity")
-                                                   (car/llen (str "task:" pretask ":param")))
-          redis-key (str "job:" pretask ":" (join "-" (take (parse-int pre-job-param-num) job-param)));demo job:count-uv:2013-11-18
-          pre-job-status (set (redis (car/smembers redis-key)))]
-      (info "redis-key = " redis-key "pre-job-status = " pre-job-status "param = " (join "-" job-param) "io = " (granu-compare igranu ogranu))    
-      (if (> (count pre-job-status) 0)    
+          [igranu ogranu] (redis (car/hget (str "task:" pretask ":output") "granularity") 
+                                 (car/hget (str "task:" task ":output") "granularity"))
+          igranu (keyword igranu)
+          ogranu (keyword ogranu)
+          pretask-history (set (redis (car/smembers (str "task:" pretask ":history"))))
+          joint-param (join "-" task-param)]
+      (info "pretask-history = " pretask-history "param = " joint-param "io = " (granu-compare igranu ogranu))    
+      (if (> (count pretask-history) 0)    
         (cond
-          (= 0 (granu-compare igranu ogranu)) (contains? pre-job-status (join "-" job-param))
-          (> 0 (granu-compare igranu ogranu)) ;igranu=hourly   ogranu=daily ;aid by daemon process 
-            (let [converter {"yearly" years "monthly" months "daily" days "hourly" hours}
-                  begin (apply date-time (map parse-int job-param))
-                  end (plus begin ((converter ogranu) 1))
-                  arr2datetime (fn [arr] (apply date-time arr))
-                  timestamps (set (map to-long (map arr2datetime (map #(map parse-int (split % #"-")) pre-job-status))))]
-              (loop [dt begin]
-                (if (>= (to-long dt) (to-long end))
+          (= 0 (granu-compare igranu ogranu)) (contains? pretask-history joint-param)
+          (< 0 (granu-compare igranu ogranu)) ;igranu=hourly   ogranu=daily ;aid by daemon process 
+            (let [converter {:yearly years :monthly months :daily days :hourly hours :minutely minutes}
+                  begin (apply date-time (map parse-int task-param))
+                  end (to-long (plus begin ((ogranu converter) 1)))
+                  arr-to-datetime (fn [arr] (apply date-time arr))
+                  timestamps (set (map to-long (map arr-to-datetime (map #(map parse-int (split % #"-")) pretask-history))))]
+              (loop [current (to-long begin)]
+                (if (>= current end)
                   true
-                  (if (contains? timestamps (to-long dt)) 
-                    (recur (plus dt ((converter igranu) 1)))
+                  (if (contains? timestamps current) 
+                    (recur (to-long (plus (from-long current) ((converter igranu) 1))))
                     (do 
-                      (info pretask dt "not finished!" task "can't start")
+                      (info pretask (from-long current) "not finished!" task "can't start")
                       false)))))
-          (< 0 (granu-compare igranu ogranu)) ; igranu=daily ogranu=hourly
-              (contains? pre-job-status (join "-" job-param)))
+          (> 0 (granu-compare igranu ogranu)) ; igranu=daily ogranu=hourly
+              (contains? pretask-history (join "-" (take (igranu granu-level) task-param))))
         false)
       )))
 
-(defn retrieve-pathFields [igranu ogranu]
-  "return path fields based on igranu and ogranu for t/hfs-tap to construct its :templatefields"
-  (let [level {:year 4, :month 3, :day 2, :hour 1}
-        mapping {:yearly :year :monthly :month :daily :day :hourly :hour}
-        inverted (clojure.set/map-invert level)
-        ilevel (level (igranu mapping))
-        olevel (level (ogranu mapping))
-        interval (- ilevel olevel)
-        namize (fn [kw] (str "?" (name kw)))
-        get-level (fn [idx] (namize (get inverted idx)))
-        ogranulevel (namize (ogranu mapping))
-        ]
-    (cond 
-      (= interval 1) (vector ogranulevel)   ; eg: igranu=:daily,ogranu=:hourly  output: ?hour
-      (= interval 2) (vector (get-level (+ 1 olevel)) ogranulevel)
-      (= interval 3) (vector (get-level (+ 2 olevel)) (get-level (+ 1 olevel)) ogranulevel)
-      (= interval -1) "/*"
-      (= interval -2) "/*/*"
-      (= interval -3) "/*/*/*"
-      ))) 
+(defn make-input-pattern [igranu ogranu]
+  (case (granu-compare igranu ogranu)
+    1 "/*"
+    2 "/*/*"
+    3 "/*/*/*"
+    "default"))
 
-(defn construct-source [input igranu ogranu delimiter]
-  (let [pattern (retrieve-pathFields igranu ogranu)]
-    (if (string? pattern)
+(defn modify-input-param [igranu ogranu param]
+  (let [gap-length (granu-compare igranu ogranu)]
+    ; max(igranu,ogranu)=job-granu  ?? 
+    ;(if (> gap-length 0)
+    ; (subvec param 0 (- (count param) gap-length))
+      param))
+
+(defn construct-source [fs base param igranu ogranu delimiter]
+  (let [fine-param (modify-input-param igranu ogranu param)
+        pattern (make-input-pattern igranu ogranu)
+        input (stitch-path fs (cons base fine-param))]
+    (info "input " input)    
+    (if (not= "default" pattern)
       (hfs-delimited input :delimiter delimiter :quote "" :source-pattern pattern)
       (hfs-delimited input :delimiter delimiter :quote ""))))
 
 (defn construct-sink [igranu ogranu query output delimiter]
   (let [granu-mapping {:yearly Granularity/YEARLY :monthly Granularity/MONTHLY :daily Granularity/DAILY :hourly Granularity/HOURLY :minutely Granularity/MINUTELY}]
-    (if (= igranu ogranu)
+    (if (> (granu-compare igranu ogranu) 0)
       (hfs-delimited output :delimiter delimiter)
       (let [scheme (TextDelimited. (u/fields (get-out-fields query)) false delimiter)]
         (HfsTemplateTap. (t/hfs scheme output) (igranu granu-mapping) (ogranu granu-mapping))))))
 
 (def task-running-status (atom ""))
 
-(defn dgranu-tracking [taskname job-param ogranu dgranu]
+(defn dgranu-tracking [taskname ogranu dgranu]
   (mapfn [datetime]
     (let [dt (trunc-datetime datetime ogranu)]
-      (if (not (= @task-running-status dt))
-        (let [redis-key (str "job:" taskname ":" (join "-" job-param))]
-          (redis (car/sadd redis-key dt))
-          (reset! task-running-status dt)))
+      (when-not (= @task-running-status dt)
+        (redis (car/sadd (str "task:" taskname ":history") dt))
+        (reset! task-running-status dt))
       (unparse dt-formatter (from-long (* 1000 ((granularity-is dgranu) datetime)))))))
 
 (defn usage [options-summary]
@@ -197,9 +194,8 @@
            (if (check-refs ~references# ~job-params#)
              (let [utime# (datetime-to-timestamp (from-time-zone (apply date-time (map parse-int ~job-params#)) (default-time-zone)))
                    [ifs# ibase# igranu# idelimiter#] (get-input-info '~task-name ~pretask#)
-                   input# (stitch-path ifs# (cons ibase# ~job-params#)) 
-                   source# (construct-source input# igranu# ~ogranu# idelimiter#)
-                   qry# (~query# (granularity-is igranu#) (dgranu-tracking '~task-name ~job-params# ~ogranu# ~dgranu#) utime# source#)
+                   source# (construct-source ifs# ibase# ~job-params# igranu# ~ogranu# idelimiter#)
+                   qry# (~query# (granularity-is igranu#) (dgranu-tracking '~task-name ~ogranu# ~dgranu#) utime# source#)
                    output# (stitch-path ~ofs# (cons ~obase# ~job-params#))
                    sink# (construct-sink igranu# ~ogranu# qry# output# ~odelimiter#)
                    ctx# {:input {:fs ifs# :base ibase# :granularity igranu# :delimiter idelimiter#} :output (:output ~args) :param ~job-params#}]

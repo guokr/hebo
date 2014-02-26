@@ -11,5 +11,9 @@
     {:pool {} :spec {:host ip :port port}}))
 
 (defmacro redis [& body] `(car/wcar (get-conn) ~@body))
+
+(defn assemble-redis-cmd [cmd params]
+  (doseq [p params]
+    (apply cmd p)))
  
  

@@ -8,12 +8,12 @@ public class Srem extends HeboCommand {
 
     @Override
     public String signature() {
-        return "s";
+        return "ss";
     }
 
     @Override
-    public void invoke(HeboEngine engine, String key, HeboCallback callback) {
-        engine.srem(callback, key);
+    public void invoke(HeboEngine engine, String key, String value, HeboCallback callback) {
+        engine.srem(callback, key, value);
     }
 
 }
