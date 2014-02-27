@@ -32,12 +32,12 @@
 
 (defn get-fine-granu
   ([granu] granu)
-  ([granu1 granu2] (if (<  (granu-compare granu1 granu2) 0) granu1 granu2))  ;granu1=daily granu2=hourly --> hourly
+  ([granu1 granu2] (if (>  (granu-compare granu1 granu2) 0) granu1 granu2))  ;granu1=daily granu2=hourly --> hourly
   ([granu1 granu2 & more] (reduce get-fine-granu (get-fine-granu granu1 granu2) more)))
 
 (defn get-coarse-granu
   ([granu] granu)
-  ([granu1 granu2] (if (>  (granu-compare granu1 granu2) 0) granu1 granu2))  ;granu1=daily granu2=hourly --> daily
+  ([granu1 granu2] (if (<  (granu-compare granu1 granu2) 0) granu1 granu2))  ;granu1=daily granu2=hourly --> daily
   ([granu1 granu2 & more] (reduce get-coarse-granu (get-coarse-granu granu1 granu2) more)))
 
 (defn get-all-tasks []

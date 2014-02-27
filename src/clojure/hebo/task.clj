@@ -129,7 +129,7 @@
 
 (defn construct-sink [igranu ogranu query output delimiter]
   (let [granu-mapping {:yearly Granularity/YEARLY :monthly Granularity/MONTHLY :daily Granularity/DAILY :hourly Granularity/HOURLY :minutely Granularity/MINUTELY}]
-    (if (> (granu-compare igranu ogranu) 0)
+    (if (>= (granu-compare igranu ogranu) 0)
       (hfs-delimited output :delimiter delimiter)
       (let [scheme (TextDelimited. (u/fields (get-out-fields query)) false delimiter)]
         (HfsTemplateTap. (t/hfs scheme output) (igranu granu-mapping) (ogranu granu-mapping))))))
