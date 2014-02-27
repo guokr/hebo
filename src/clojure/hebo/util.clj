@@ -50,7 +50,7 @@
 (defn get-next-tasks [task]
   (let [all-task (get-all-tasks)]
     (if (> (count all-task) 0)
-      (let [all-next-task (eval (cons 'hebo.redis/redis (for [t all-task] `(car/get (str "task:" ~t ":pretask")))))
+      (let [all-next-task (redis (assemble-redis-cmd car/get (map #(vector (str "task:" % ":pretask")) all-task)))
             task-pretask (zipmap all-task all-next-task)
             right-next (keys (filter #(= task (val %)) task-pretask))]
         (if (nil? right-next)

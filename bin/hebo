@@ -21,11 +21,12 @@ usage() {
   echo "where COMMAND is one of:"
   echo "  start     start hebo system to cron your tasks"
   echo "  stop      stop hebo system"
-  echo "  uberjar   lein ubjerjar"
-  echo "  exec      execute a task"
-  echo "  test      test your task"
-  echo "  deploy    deploy your task to hebo system"
-  echo "  remove    remove your task from hebo system"
+  echo "  exec      execute a task" 
+  echo "  init      initialize the status of a task"
+  echo "  reinit    reinitialize the status of a task"
+  echo "  term      terminate a  task"
+  echo "  deploy    deploy a task to hebo system"
+  echo "  remove    remove a task from hebo system"
   echo "  list      list all tasks in current hebo system"
 }
 

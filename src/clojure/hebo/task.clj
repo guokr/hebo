@@ -21,7 +21,7 @@
 
 (defn isrunning? [task params]
   (println "check running status of [" task params "]")
-  (if (= (redis (car/sismember (str "run:" (name task)) (join "-" params)) "0"))
+  (if (= (parse-int (redis (car/sismember (str "run:" (name task)) (join "-" params)))) 0)
     (do
       (redis (car/sadd (str "run:" (name task)) (join "-" params)))
       true)
@@ -66,7 +66,7 @@
         (let [f (first refs)]
           (if (nil? f)
             true
-            (if (= "1" (redis (car/sismember (str "end:" (name  f)) joint-param)))
+            (if (= 1 (parse-int (redis (car/sismember (str "end:" (name  f)) joint-param))))
               (recur (rest refs))
               false))))))) 
 
@@ -154,7 +154,7 @@
         "Actions:"
         "name      retrieve taskname"        
         "cron      retrieve task's cron"
-        "begin     add begin item in redis"
+        "begin     add begin item in hebo server"
         "exec      exec the task"
         "purge     purge the task"
         "info      retrieve information of the task"        

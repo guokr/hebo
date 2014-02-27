@@ -39,22 +39,9 @@
 (defjob HeboDaemon [ctx]
   (info "exec HeboDaemon")
   (let [today00 (from-time-zone (today-at 0 0) (default-time-zone))
-        all-status (redis (car/keys "job*"))
         all-task (get-all-tasks)
-        status-len (count all-status)
         task-len (count all-task)
         arr2datetime (fn [arr] (from-time-zone (apply date-time arr) (default-time-zone)))]
-    (if (> status-len 0)
-      (let [a-week-ago (minus today00 (days 7))
-            params (map #(subs % (inc (.lastIndexOf % ":"))) all-status)
-            datetimes (map arr2datetime (map #(map parse-int (split % #"-")) params))
-            status-dt-mapping (zipmap all-status datetimes)
-            to-be-deleted (keys (filter #(before? (second %) a-week-ago) status-dt-mapping))]
-        (if (not (nil? to-be-deleted))
-          (do
-            (eval (cons 'guokr.redis/redis  (for [t to-be-deleted] `(car/del ~t))))
-            (info "redis task job data = " to-be-deleted))
-          )))
     (if (> task-len 0)
       (doseq [taskname all-task]
         (let [begin-list (str "begin:" taskname)
@@ -86,5 +73,4 @@
           (if (empty? tasks) crons
             (recur (rest tasks) (conj crons (redis (car/hget "cron" (first tasks))))))))]
       (addcron x y)))
-  ;(initdaemon)
-  )
+  (initdaemon))
