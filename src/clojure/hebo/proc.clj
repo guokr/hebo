@@ -15,7 +15,7 @@
         job-params#    (vec (map symbolize (:param args)))
         intern-main#   (symbol "-main")
         intern-exec#   (symbol "-exec")
-        proc#         (:process args)]
+        proc#          (:process args)]
     `(do
        (def ~intern-exec# (fn ~job-params#
          (let [timestamp# (datetime-to-timestamp (from-time-zone (apply date-time (map parse-int ~job-params#)) (default-time-zone)))]
@@ -30,6 +30,7 @@
        
        (def ~intern-main# (fn [& arguments#]
          (case (first arguments#) 
+           "name" (println (str '~proc-name))
            "exec" (apply ~intern-exec# (next arguments#))
            "info" (prn (:cron ~args))
            (prn "unknown hebo proc command!")))))))

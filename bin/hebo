@@ -42,7 +42,7 @@ _hebo_deploy() {
       
       cd $HEBO_HOME
       taskname="`hadoop jar $CUR_PATH/target/$jarname name`"
-          
+       
       cat << 'EOF' > $bin/$taskname
 #! /usr/bin/env bash
 
@@ -54,8 +54,14 @@ EOF
       echo "hadoop jar ~/.hebo/jars/$jarname" '"$@"' >> $bin/$taskname
       chmod u+x $bin/$taskname
       cp $CUR_PATH/target/$jarname ~/.hebo/jars/
-      _hebo task remove $taskname
-      _hebo task install $taskname
+        
+      if [ X$2 == X"proc" ]; then
+        _hebo proc remove $taskname
+        _hebo proc install $taskname
+      else
+        _hebo task remove $taskname
+        _hebo task install $taskname
+      fi
   fi
 }
 _hebo_install() {
@@ -99,7 +105,7 @@ checkargs () {
       _hebo "$@"
       ;;
     deploy)
-      _hebo_deploy
+      _hebo_deploy "$@"
       ;;
     install)
       _hebo_install
