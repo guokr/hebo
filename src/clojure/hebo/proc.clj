@@ -8,7 +8,7 @@
   (:require [taoensso.carmine :as car]))
 
 (defn terminate [procname joint-param]
-  (redis (car/sadd (str "proc:end:" procname) joint-param)))
+  (redis (car/sadd (str "end:" procname) joint-param)))
 
 (defmacro defproc [proc-name & {:as args}]
   (let [parameters#    (vec (:param args))
