@@ -142,11 +142,11 @@
     (car/hset (str "task:" taskname ":data") "granularity" (:granularity (:data taskinfo)))
   
     (let [input (:input taskinfo)]
-      (when-not (nil? input))
+      (when-not (nil? input)
         (car/hset (str "task:" taskname ":input") "fs" (:fs input))
         (car/hset (str "task:" taskname ":input") "base" (:base input))
         (car/hset (str "task:" taskname ":input") "granularity" (:granularity input))
-        (car/hset (str "task:" taskname ":input") "delimiter" (:delimiter input)))
+        (car/hset (str "task:" taskname ":input") "delimiter" (:delimiter input))))
     
     (let [pretask (:pretask taskinfo)]
       (if (not (nil? pretask))

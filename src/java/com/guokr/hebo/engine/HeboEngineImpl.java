@@ -38,6 +38,7 @@ public class HeboEngineImpl implements HeboEngine {
                 invoke();
             } catch (Throwable ex) {
                 String errMsg = ex.getMessage();
+                System.out.println("errorCMD = " + scope);
                 callback.error(errMsg);
             } finally {
                 callback.response();
@@ -209,9 +210,11 @@ public class HeboEngineImpl implements HeboEngine {
                 if (dbmaker.exists(key)) {
                     Set<String> set = (Set<String>) dbmaker.get(key);
                     callback.integerValue(set.remove(value) ? 1 : 0);
+                    if (set.isEmpty()) {
+                        dbmaker.delete(key);
+                    }
                 } else {
-                    Set<String> set = (Set<String>) dbmaker.get(key);
-                    callback.integerValue(set.remove(key) ? 1 : 0);
+                    callback.integerValue(0);
                 }
             }
         });
@@ -239,10 +242,14 @@ public class HeboEngineImpl implements HeboEngine {
 
             @Override
             public void invoke() {
-                Set<String> set1 = (Set<String>) dbmaker.get(key1);
-                Set<String> set2 = (Set<String>) dbmaker.get(key2);
+                if (dbmaker.exists(key1)) {
+                    Set<String> set1 = (Set<String>) dbmaker.get(key1);
+                    Set<String> set2 = (Set<String>) dbmaker.get(key2);
+                    callback.stringList(setsCompare(set1, set2));
+                } else {
+                    callback.stringList(new String[0]);
+                }
 
-                callback.stringList(setsCompare(set1, set2));
             }
         });
 
@@ -255,21 +262,25 @@ public class HeboEngineImpl implements HeboEngine {
 
             @Override
             public void invoke() {
-                Set<String> set1 = (Set<String>) dbmaker.get(key2);
-                Set<String> set2 = (Set<String>) dbmaker.get(key3);
-
-                String[] diffarr = setsCompare(set1, set2);
-
-                Set<String> set = null;
-                if (dbmaker.exists(key1)) {
-                    set = (Set<String>) dbmaker.get(key1);
+                String[] diffarr = null;
+                if (dbmaker.exists(key2)) {
+                    Set<String> set1 = (Set<String>) dbmaker.get(key2);
+                    Set<String> set2 = (Set<String>) dbmaker.get(key3);
+                    diffarr = setsCompare(set1, set2);
                 } else {
-                    set = dbmaker.createHashSet(key1).makeOrGet();
+                    diffarr = new String[0];
                 }
-                for (String element : diffarr) {
-                    set.add(element);
+
+                if (dbmaker.exists(key1)) {
+                    dbmaker.delete(key1);
                 }
-                callback.integerValue(set.size());
+                if (diffarr.length > 0) {
+                    Set<String> set = dbmaker.createHashSet(key1).make();
+                    for (String element : diffarr) {
+                        set.add(element);
+                    }
+                }
+                callback.integerValue(diffarr.length);
             }
         });
 
@@ -292,6 +303,9 @@ public class HeboEngineImpl implements HeboEngine {
                         set.remove(value);
                     }
                     callback.stringValue(value);
+                    if (set.isEmpty()) {
+                        dbmaker.delete(key);
+                    }
                 } else {
                     callback.stringValue(null);
                 }
@@ -310,6 +324,9 @@ public class HeboEngineImpl implements HeboEngine {
                 if (dbmakerForHashmap.exists(key)) {
                     HTreeMap<String, String> map = (HTreeMap<String, String>) dbmakerForHashmap.get(key);
                     callback.integerValue(map.remove(hkey) == null ? 0 : 1);
+                    if (map.isEmpty()) {
+                        dbmakerForHashmap.delete(key);
+                    }
                 } else {
                     callback.integerValue(0);
                 }
@@ -439,3 +456,4 @@ public class HeboEngineImpl implements HeboEngine {
 
     }
 }
+
