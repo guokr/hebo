@@ -1,5 +1,7 @@
 #Ignore everything in this directory
 *
-# Except those two files
+# Except those four files
 !.gitignore
 !hebo
+!start-hebo
+!stop-hebo
