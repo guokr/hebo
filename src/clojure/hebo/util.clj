@@ -25,7 +25,6 @@
 
 (defn granu-compare [granu1 granu2]
   " > return 1;  =  return 0 ; < return -1 "
-  (info "granu-compare" granu1 granu2)
   (if (nil? granu2)
     0
   (- (granu1 granu-level) (granu2 granu-level))))

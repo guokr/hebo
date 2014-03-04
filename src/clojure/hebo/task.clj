@@ -13,6 +13,7 @@
         [hebo.redis]
         [hebo.action]
         [hebo.util]
+        [hebo.xml]
         [hebo.main :only [terminate initiate]])
   (:require [taoensso.carmine :as car]
             [cascalog.cascading [util :as u] [tap :as t]])
@@ -41,7 +42,7 @@
   {:fs :local :name [ /data/logs/extracted :year :month :day]}  ;local format"
   (when-not (and (empty? fs) (empty? fname)) 
     (if (= "hdfs" fs)
-      (str "/" (join "/" fname))  ;default fs is hdfs
+      (str (parse-default-name (resource "core-site.xml")) "/" (join "/" fname))  ;default fs is hdfs
       (str "file://" (join "/" fname)))))
 
 (defn get-input-info [curtask pretask]

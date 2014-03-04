@@ -19,8 +19,5 @@
                         (when-not (empty? fs)
                           (if (= (:tag fs) :value) 
                             (first (:content fs))
-                            (recur (next fs-kv))
-                            ))))
-        ip (nth (split default-name #":|//") 2)]
-        ip
-        ))
+                            (recur (next fs-kv))))))]
+     default-name))
