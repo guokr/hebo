@@ -226,6 +226,7 @@
          (purge (str '~task-name) ~job-params# (stitch-path ~ofs# (cons ~obase# ~job-params#)))))
      
        (def ~intern-main# (fn [& commands#]
+         (java.util.Locale/setDefault java.util.Locale/ENGLISH)
          (let [cmds# (parse-opts commands# ~cli-opts)
               options# (:options cmds#)
               arguments# (:arguments cmds#)
