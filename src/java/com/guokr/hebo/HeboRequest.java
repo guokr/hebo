@@ -5,10 +5,13 @@ import java.util.List;
 
 public class HeboRequest {
 
+    public  int          order;
+
     private List<String> content = new ArrayList<String>();
     private int          size;
 
-    public HeboRequest(int size) {
+    public HeboRequest(int order, int size) {
+    	this.order = order;
         this.size = size;
     }
 

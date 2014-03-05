@@ -14,7 +14,6 @@ public class Ping extends HeboCommand {
     @Override
     public void invoke(HeboEngine engine, HeboCallback callback) {
         callback.ok("PONG");
-        callback.response();
     }
 
 }

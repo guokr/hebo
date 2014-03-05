@@ -36,8 +36,9 @@ public class ServerHandler implements IHandler {
 
 			@Override
 			public void run() {
-				ServerCallback callback = new ServerCallback(reqs.length(), cb);
+				ServerCallback rootCallback = new ServerCallback(reqs.length(), cb);
 				for (HeboRequest request : reqs) {
+					HeboCallback callback = new PipedCallback(rootCallback, request.order);
 					handle(callback, request);
 				}
 			}

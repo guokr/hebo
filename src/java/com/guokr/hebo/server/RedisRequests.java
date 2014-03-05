@@ -16,6 +16,7 @@ public class RedisRequests implements Iterable<HeboRequest> {
 
     private List<HeboRequest> list = new ArrayList<HeboRequest>();
 
+    private int               order = 0;
     private HeboRequest       last;
 
     public State             state;
@@ -28,7 +29,7 @@ public class RedisRequests implements Iterable<HeboRequest> {
     }
 
     public void request(int size) {
-        last = new HeboRequest(size);
+        last = new HeboRequest(order++, size);
         list.add(last);
     }
 
@@ -47,6 +48,7 @@ public class RedisRequests implements Iterable<HeboRequest> {
 
     public void reset() {
         list.clear();
+        order = 0;
     }
 
 }
