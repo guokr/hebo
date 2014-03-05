@@ -159,6 +159,7 @@
 
 (defn -main [& args]
   (init-logging)
+  (java.util.Locale/setDefault java.util.Locale/ENGLISH)
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-opts)]
     (cond
       (:help options) (exit 0 (usage summary))
