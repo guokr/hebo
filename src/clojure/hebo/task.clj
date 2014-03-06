@@ -210,7 +210,7 @@
                        (terminate (str '~task-name) ~job-params#)
                        (fire-next (str '~task-name) ~job-params#)
                        (rm (str '~task-name) ~job-params#))
-                     (catch Exception err#
+                     (catch Throwable err#
                        (do
                          (print-stack-trace err#)
                          (print-stack-trace (root-cause err#))

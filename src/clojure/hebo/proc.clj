@@ -22,13 +22,15 @@
            (try
              (info "running proc" '~proc-name ~job-params#)
              (~proc# timestamp# (assoc (dissoc ~args :process) :param ~job-params#))
-             (terminate '~proc-name (join "-" ~job-params#))
-           (catch Exception err#
+             (terminate (str '~proc-name) (join "-" ~job-params#))
+           (catch Throwable err#
              (do
+               (info err#)
                (print-stack-trace err#)
                (print-stack-trace (root-cause err#))))))))
        
        (def ~intern-main# (fn [& arguments#]
+         (java.util.Locale/setDefault java.util.Locale/ENGLISH)
          (case (first arguments#) 
            "name" (println (str '~proc-name))
            "exec" (apply ~intern-exec# (next arguments#))
