@@ -4,7 +4,8 @@
         [clj-time.core :exclude [second extend]]
         [clojure.tools.logging :only [info warn error]]
         [hebo.redis]
-        [hebo.util])
+        [hebo.util]
+        [hebo.log])
   (:require [taoensso.carmine :as car]))
 
 (defn terminate [procname joint-param]
@@ -25,14 +26,15 @@
              (terminate (str '~proc-name) (join "-" ~job-params#))
            (catch Throwable err#
              (do
-               (info err#)
+               (error err#)
                (print-stack-trace err#)
                (print-stack-trace (root-cause err#))))))))
        
        (def ~intern-main# (fn [& arguments#]
          (java.util.Locale/setDefault java.util.Locale/ENGLISH)
+         (init-logging)
          (case (first arguments#) 
            "name" (println (str '~proc-name))
            "exec" (apply ~intern-exec# (next arguments#))
            "info" (prn (:cron ~args))
-           (prn "unknown hebo proc command!")))))))
+           (println "unknown hebo proc command!")))))))

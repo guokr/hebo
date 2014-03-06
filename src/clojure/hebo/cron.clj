@@ -36,8 +36,8 @@
                   (t/with-schedule (schedule (cron-schedule cron))))]
     (qs/schedule job trigger)))
 
-(defjob HeboDaemon [ctx]
-  (info "exec HeboDaemon")
+(defjob hebo-daemon [ctx]
+  (info "exec hebo-daemon")
   (let [today00 (from-time-zone (today-at 0 0) (default-time-zone))
         all-task (get-all-tasks)
         task-len (count all-task)
@@ -54,15 +54,15 @@
               (if (> (count undone-task-date) 0)
                 (error "task remains for 2 more days = " taskname undone-task-date)))))))))
 
-(defn initdaemon []
+(defn cron-daemon []
   (let [job     (j/build
-                  (j/of-type HeboDaemon)
+                  (j/of-type hebo-daemon)
                   (j/with-identity (j/key "job.hebodaemon")))
           trigger (t/build
                   (t/with-identity (t/key "trigger.hebodaemon"))
                   (t/start-now)
                   (t/with-schedule (schedule (cron-schedule "0 0 0/4 * * ?"))))]
-      (info "add-cron hebodaemon 0 0 0/4 * * ?")    
+      (info "add-cron hebo-daemon 0 0 0/4 * * ?")    
       (qs/schedule job trigger)))
 
 (defn refresh-cron []
@@ -73,4 +73,4 @@
           (if (empty? tasks) crons
             (recur (rest tasks) (conj crons (redis (car/hget "cron" (first tasks))))))))]
       (addcron x y)))
-  (initdaemon))
+  (cron-daemon))

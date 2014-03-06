@@ -99,12 +99,15 @@
   (loop [job (redis (car/spop (str "cur:" taskname)))]
     (when-not (nil? job)
       (println (flatten [taskname "exec" (split job #"-")]))
-      (if (and
-            (= (parse-int (redis (car/sismember (str "end:" taskname) job))) 0)
-            (= (parse-int (redis (car/sismember (str "run:" taskname) job))) 0)) 
-        (apply sh (flatten [taskname "exec" (split job #"-")])))
-      (redis (car/sdiffstore (str "cur:" taskname) (str "begin:" taskname) (str "end:" taskname)))
-      (recur (redis (car/spop (str "cur:" taskname)))))))
+      (let [[end? run?] (map parse-int (redis (car/sismember (str "end:" taskname) job)
+                                              (car/sismember (str "run:" taskname) job)))]
+        (if (and (= end? 0) (= run? 0)) 
+          (let [err-msg (:err (apply sh (flatten [taskname "exec" (split job #"-")])))]
+            (when-not (nil? err-msg) 
+              (error taskname job " exit with " err-msg)
+              (System/exit 2))))
+        (redis (car/sdiffstore (str "cur:" taskname) (str "begin:" taskname) (str "end:" taskname)))
+        (recur (redis (car/spop (str "cur:" taskname))))))))
 
 (defn terminate [taskname params]
   (redis (car/sadd (str "end:" taskname) (join "-" params))))
@@ -116,8 +119,9 @@
       (.run))
     (catch Exception err 
       (do
-        (error (print-stack-trace err))
-        (error (print-stack-trace (root-cause err))))))
+        (error err)
+        (print-stack-trace err)
+        (print-stack-trace (root-cause err)))))
   (if-let [results (redis (car/hkeys "cron"))]
     (loop [tasknames results]
       (when (not (empty? tasknames))

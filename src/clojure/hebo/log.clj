@@ -1,7 +1,7 @@
 (ns hebo.log
   (:import [org.apache.log4j RollingFileAppender PatternLayout Logger Level]))
  
-(defn init-logging[]
+(defn init-logging []
   (let [layout (PatternLayout. "%d %5p [%t] - %m%n")
         hebo-info (doto (new RollingFileAppender layout "logs/hebo.info.log") 
                         (.setMaxFileSize "20MB")
@@ -12,5 +12,4 @@
     (doto  
       (Logger/getLogger "hebo")
       (.addAppender hebo-info)
-      (.addAppender hebo-error))
-  ))
+      (.addAppender hebo-error))))

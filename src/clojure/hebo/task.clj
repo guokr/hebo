@@ -4,16 +4,17 @@
         [clojure.java.shell :only [sh]]
         [clojure.stacktrace :only [print-stack-trace root-cause]]
         [clojure.tools.logging :only (info error)]
+        [clojure.tools.cli :only [parse-opts]]
         [cascalog.api]
         [cascalog.more-taps :only (hfs-delimited)]
         [clj-time.coerce :only [to-long from-long]]
         [clj-time.core :exclude [second extend]]
         [clj-time.format]
-        [clojure.tools.cli :only [parse-opts]]
         [hebo.redis]
         [hebo.action]
         [hebo.util]
         [hebo.xml]
+        [hebo.log]
         [hebo.main :only [terminate initiate]])
   (:require [taoensso.carmine :as car]
             [cascalog.cascading [util :as u] [tap :as t]])
@@ -54,7 +55,6 @@
                                             (car/hget input "base")
                                             (car/hget input "granularity")
                                             (car/hget input "delimiter"))]
-    (info fs fbase (keyword fgranu) fdelimiter)    
     [fs fbase (keyword fgranu) fdelimiter]))
 
 
@@ -123,7 +123,6 @@
   (let [fine-param (modify-input-param igranu ogranu param)
         pattern (make-input-pattern igranu ogranu)
         input (stitch-path fs (cons base fine-param))]
-    (info "input " input)    
     (if (not= "default" pattern)
       (hfs-delimited input :delimiter delimiter :quote "" :source-pattern pattern)
       (hfs-delimited input :delimiter delimiter :quote ""))))
@@ -214,7 +213,9 @@
                        (do
                          (print-stack-trace err#)
                          (print-stack-trace (root-cause err#))
-                         (purge (str '~task-name) ~job-params# output#))))))
+                         (purge (str '~task-name) ~job-params# output#)
+                         (System/exit 2)
+                         )))))
              (do
                (error '~task-name ~job-params# "refs undone")
                (System/exit 1)))
@@ -227,6 +228,7 @@
      
        (def ~intern-main# (fn [& commands#]
          (java.util.Locale/setDefault java.util.Locale/ENGLISH)
+         (init-logging)
          (let [cmds# (parse-opts commands# ~cli-opts)
               options# (:options cmds#)
               arguments# (:arguments cmds#)
@@ -255,5 +257,5 @@
                              :output new-output# :input new-input# :desc (str "\"" ~description# "\"") :cron (str "\"" ~cron# "\""))))   
                   (println (assoc (dissoc ~args :query :prepare :final)
                            :output new-output# :desc (str "\"" ~description# "\"") :cron (str "\"" ~cron# "\""))))) 
-            (prn "unknown task command!")) 
+            (println "unknown task command!")) 
           ))))))
