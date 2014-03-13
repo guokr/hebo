@@ -144,6 +144,15 @@
         (reset! task-running-status dt))
       (unparse dt-formatter (from-long (* 1000 ((granularity-is dgranu) datetime)))))))
 
+(defn need-export-es? [taskname param]
+  (if (= taskname "count-trsf")
+    true
+    (let [cur-date (apply date-time (map parse-int param))
+          deadline (date-time 2014 3 11)]
+      (if (before? cur-date deadline)
+        false
+        true))))
+  
 (defn usage [options-summary]
   (->> [""
         "Usage: taskname [options] action"
@@ -205,7 +214,8 @@
                        (info "running task" '~task-name ~job-params#)
                        (~prepare# ctx#)
                        (?- sink# qry#)
-                       (~final# ctx#)
+                       (if (need-export-es? (str '~task-name) ~job-params#)
+                         (~final# ctx#))
                        (terminate (str '~task-name) ~job-params#)
                        (fire-next (str '~task-name) ~job-params#)
                        (rm (str '~task-name) ~job-params#))
