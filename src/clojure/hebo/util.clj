@@ -149,7 +149,7 @@
     
     (let [pretask (:pretask taskinfo)]
       (if (not (nil? pretask))
-        (redis (car/set (str "task:" taskname ":pretask") pretask))))
+        (car/set (str "task:" taskname ":pretask") pretask)))
   
     (let [refs (:refs taskinfo)]
       (if (not (nil? refs))

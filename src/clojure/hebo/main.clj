@@ -94,9 +94,9 @@
     (warn "subcommand proc only has two options: install remove")))
 
 (defn execute [taskname]
-  (info taskname "begin---end" (redis (car/sdiff (str "begin:" taskname) (str "end:" taskname))))
   (redis (car/sdiffstore (str "cur:" taskname) (str "begin:" taskname) (str "end:" taskname)))
   (loop [job (redis (car/spop (str "cur:" taskname)))]
+    (info "cur:" taskname ":" (redis (car/smembers (str "cur:" taskname))))
     (when-not (nil? job)
       (println (flatten [taskname "exec" (split job #"-")]))
       (let [[end? run?] (map parse-int (redis (car/sismember (str "end:" taskname) job)
