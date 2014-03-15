@@ -21,7 +21,7 @@ Now I will show you changes of a example data marked with 2014-02-20T23:55:05+08
 
 2. B can't be executed until A is finished.the input-granu of B should be equal output-granu of A,because output-granu of B is monthly,it require the total days of the exact month,in another way,files such as 2014-02-20,2014-02-21,2014-02-22 will all feed B,therefore the param of B may contain 2014 02,and 2014-02-20T23:00:00+0800 changed to 2014-02-20T00:00:00+0800 according to data-granu.
 
-3. C can't be executed until B is finished.the input-granu of C should be equal output-granu of B,becasue output-granu of C is daily,it will divided monthly input file into multiple daily files, 2014-02-20T00:00:00+0800 remains the same according to its data-granu of daily.
+3. C can't be executed until B is finished.the input-granu of C should be equal output-granu of B,becasue output-granu of C is daily,it will divide one monthly input file into multiple daily files,for example 2014-02.in will produce 2014-02-01.out,2014-02-02.out and so on. 2014-02-20T00:00:00+0800 remains the same according to its data-granu of daily.
 
 ## Getting started
 
