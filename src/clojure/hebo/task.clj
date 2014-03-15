@@ -29,11 +29,11 @@
       true)
     false))
 
-(defn rm [task params]
+(defn delete-run [task params]
   (redis (car/srem (str "run:" (name task)) (join "-" params))))
 
-(defn purge [task params job-fname]
-  (println "purge" job-fname)
+(defn purge-task [task params job-fname]
+  (println "purge-task" job-fname)
   (redis (car/srem (str "run:" (name task)) (join "-" params)))
   (sh "hadoop" "fs" "-rmr" job-fname))
 
@@ -144,6 +144,9 @@
         (reset! task-running-status dt))
       (unparse dt-formatter (from-long (* 1000 ((granularity-is dgranu) datetime)))))))
 
+(deffilterfn same-granu? [granu timestamp datetime] 
+  (= timestamp (granu datetime)))
+
 (defn usage [options-summary]
   (->> [""
         "Usage: taskname [options] action"
@@ -208,12 +211,12 @@
                        (~final# ctx#)
                        (terminate (str '~task-name) ~job-params#)
                        (fire-next (str '~task-name) ~job-params#)
-                       (rm (str '~task-name) ~job-params#))
+                       (delete-run (str '~task-name) ~job-params#))
                      (catch Throwable err#
                        (do
                          (print-stack-trace err#)
                          (print-stack-trace (root-cause err#))
-                         (purge (str '~task-name) ~job-params# output#)
+                         (purge-task (str '~task-name) ~job-params# output#)
                          (System/exit 2)
                          )))))
              (do
@@ -224,7 +227,7 @@
              (System/exit 1)))))
        
        (def ~purge-name# (fn ~job-params#
-         (purge (str '~task-name) ~job-params# (stitch-path ~ofs# (cons ~obase# ~job-params#)))))
+         (purge-task (str '~task-name) ~job-params# (stitch-path ~ofs# (cons ~obase# ~job-params#)))))
      
        (def ~intern-main# (fn [& commands#]
          (java.util.Locale/setDefault java.util.Locale/ENGLISH)

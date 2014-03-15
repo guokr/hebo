@@ -17,7 +17,7 @@ Suppose you have 3 tasks A,B,C,and they have following restrictions:
  
 Now I will show you changes of a example data marked with 2014-02-20T23:55:05+0800 throughout this workflow.
 
-1. A reies no tasks,so A can execute directly.the input-granu of A is daily,so its parameter may contains 2014 02 30,then data-granu of A is hourly,so 2014-02-20T23:55:05+0800 will be changed to 2014-02-20T23:00:00+0800,at last the output-granu is daily,so the output of A will gather all data of 2014-02-20 into a file.So final output file contains 2014-02-20T23:00:00+0800, 2014-02-20T22:00:00+0800, 2014-02-20T21:00:00+0800 and so on. 
+1. A relies no tasks,so A can execute directly.the input-granu of A is daily,so its parameter may contains 2014 02 30,then data-granu of A is hourly,so 2014-02-20T23:55:05+0800 will be changed to 2014-02-20T23:00:00+0800,at last the output-granu is daily,so the output of A will gather all data of 2014-02-20 into a file.So final output file contains 2014-02-20T23:00:00+0800, 2014-02-20T22:00:00+0800, 2014-02-20T21:00:00+0800 and so on. 
 
 2. B can't be executed until A is finished.the input-granu of B should be equal output-granu of A,because output-granu of B is monthly,it require the total days of the exact month,in another way,files such as 2014-02-20,2014-02-21,2014-02-22 will all feed B,therefore the param of B may contain 2014 02,and 2014-02-20T23:00:00+0800 changed to 2014-02-20T00:00:00+0800 according to data-granu.
 
