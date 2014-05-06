@@ -39,12 +39,12 @@
   (doseq [taskname arguments]
     (when-not (empty? taskname)
       (let [cmd (trim (:out (sh taskname "info")))
-            taskinfo (try (read-string cmd) 
-                      (catch Exception err 
+            taskinfo (try (read-string cmd)
+                      (catch Exception err
                         (do
                           (print-stack-trace err)
                           (error "task" taskname "add error"))))]
-        (info taskinfo)    
+        (info taskinfo)
         (addtask taskname taskinfo))))
     (send-command 54319 "refresh"))
 
@@ -54,7 +54,7 @@
       (if (= "all" taskname)
         (let [task-items (redis (car/keys "task:*"))
               task-meta (filter #(not (.endsWith % "history")) task-items)]
-          (redis 
+          (redis
             (assemble-redis-cmd car/del (map #(vector %) task-meta))
             (car/del "cron")))
         (let [task-items (redis (car/keys (str "task:" taskname ":*")))
@@ -73,12 +73,12 @@
   (doseq [procname arguments]
     (when-not (empty? procname)
       (let [cmd (trim (:out (sh procname "info")))
-            procinfo (try (read-string cmd) 
+            procinfo (try (read-string cmd)
                       (catch Exception err
                         (do
                           (print-stack-trace err)
                           (error "procname" procname "add error"))))]
-        (redis (car/hset "cron" procname procinfo))    
+        (redis (car/hset "cron" procname procinfo))
         (info procname procinfo))))
     (send-command 54319 "refresh"))
 
@@ -101,9 +101,9 @@
       (println (flatten [taskname "exec" (split job #"-")]))
       (let [[end? run?] (map parse-int (redis (car/sismember (str "end:" taskname) job)
                                               (car/sismember (str "run:" taskname) job)))]
-        (if (and (= end? 0) (= run? 0)) 
+        (if (and (= end? 0) (= run? 0))
           (let [err-msg (:err (apply sh (flatten [taskname "exec" (split job #"-")])))]
-            (when-not (nil? err-msg) 
+            (when-not (nil? err-msg)
               (error taskname job " exit with " err-msg)
               (System/exit 2))))
         (redis (car/sdiffstore (str "cur:" taskname) (str "begin:" taskname) (str "end:" taskname)))
@@ -113,15 +113,15 @@
   (redis (car/sadd (str "end:" taskname) (join "-" params))))
 
 (defn start []
-  (try
-    (doto
-      (Hebo.)
-      (.run))
-    (catch Exception err 
-      (do
-        (error err)
-        (print-stack-trace err)
-        (print-stack-trace (root-cause err)))))
+  ;(try
+  ;  (doto
+  ;    (Hebo.)
+  ;    (.run))
+  ;  (catch Exception err
+  ;    (do
+  ;      (error err)
+  ;      (print-stack-trace err)
+  ;      (print-stack-trace (root-cause err)))))
   (if-let [results (redis (car/hkeys "cron"))]
     (loop [tasknames results]
       (when (not (empty? tasknames))

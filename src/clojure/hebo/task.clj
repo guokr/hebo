@@ -41,7 +41,7 @@
   "make output filename based on filesystem and filename
   {:fs :hdfs :name [ pv :year :month :day :hour]}  ;hdfs format
   {:fs :local :name [ /data/logs/extracted :year :month :day]}  ;local format"
-  (when-not (and (empty? fs) (empty? fname)) 
+  (when-not (and (empty? fs) (empty? fname))
     (if (= "hdfs" fs)
       (str (parse-default-name (resource "core-site.xml")) "/" (join "/" fname))  ;default fs is hdfs
       (str "file://" (join "/" fname)))))
@@ -69,24 +69,24 @@
             true
             (if (= 1 (parse-int (redis (car/sismember (str "end:" (name  f)) joint-param))))
               (recur (rest refs))
-              false))))))) 
+              false)))))))
 
 (defn check-pretask [task pretask task-param]
   "check if the previous tasks have done"
   (if (nil? pretask) ;没有前置任务时直接返回true
     true
     (let [pretask (name pretask)
-          [igranu ogranu] (redis (car/hget (str "task:" pretask ":output") "granularity") 
+          [igranu ogranu] (redis (car/hget (str "task:" pretask ":output") "granularity")
                                  (car/hget (str "task:" task ":output") "granularity"))
           igranu (keyword igranu)
           ogranu (keyword ogranu)
           pretask-history (set (redis (car/smembers (str "task:" pretask ":history"))))
           joint-param (join "-" task-param)]
-      (info "pretask-history = " pretask-history "param = " joint-param "io = " (granu-compare igranu ogranu))    
-      (if (> (count pretask-history) 0)    
+      (info "pretask-history = " pretask-history "param = " joint-param "io = " (granu-compare igranu ogranu))
+      (if (> (count pretask-history) 0)
         (cond
           (= 0 (granu-compare igranu ogranu)) (contains? pretask-history joint-param)
-          (< 0 (granu-compare igranu ogranu)) ;igranu=hourly   ogranu=daily ;aid by daemon process 
+          (< 0 (granu-compare igranu ogranu)) ;igranu=hourly   ogranu=daily ;aid by daemon process
             (let [converter {:yearly years :monthly months :daily days :hourly hours :minutely minutes}
                   begin (apply date-time (map parse-int task-param))
                   end (to-long (plus begin ((ogranu converter) 1)))
@@ -95,9 +95,9 @@
               (loop [current (to-long begin)]
                 (if (>= current end)
                   true
-                  (if (contains? timestamps current) 
+                  (if (contains? timestamps current)
                     (recur (to-long (plus (from-long current) ((converter igranu) 1))))
-                    (do 
+                    (do
                       (info pretask (from-long current) "not finished!" task "can't start")
                       false)))))
           (> 0 (granu-compare igranu ogranu)) ; igranu=daily ogranu=hourly
@@ -114,7 +114,7 @@
 
 (defn modify-input-param [igranu ogranu param]
   (let [gap-length (granu-compare igranu ogranu)]
-    ; max(igranu,ogranu)=job-granu  ?? 
+    ; max(igranu,ogranu)=job-granu  ??
     ;(if (> gap-length 0)
     ; (subvec param 0 (- (count param) gap-length))
       param))
@@ -144,7 +144,7 @@
         (reset! task-running-status dt))
       (unparse dt-formatter (from-long (* 1000 ((granularity-is dgranu) datetime)))))))
 
-(deffilterfn same-granu? [granu timestamp datetime] 
+(deffilterfn same-granu? [granu timestamp datetime]
   (= timestamp (granu datetime)))
 
 (defn usage [options-summary]
@@ -155,12 +155,12 @@
         options-summary
         ""
         "Actions:"
-        "name      retrieve taskname"        
+        "name      retrieve taskname"
         "cron      retrieve task's cron"
         "begin     add begin item in hebo server"
         "exec      exec the task"
         "purge     purge the task"
-        "info      retrieve information of the task"        
+        "info      retrieve information of the task"
         ""
         "Please refer to the manual page for more information."]
        (join \newline)))
@@ -225,10 +225,10 @@
            (do
              (error '~task-name ~job-params# "pretask undone!")
              (System/exit 1)))))
-       
+
        (def ~purge-name# (fn ~job-params#
          (purge-task (str '~task-name) ~job-params# (stitch-path ~ofs# (cons ~obase# ~job-params#)))))
-     
+
        (def ~intern-main# (fn [& commands#]
          (java.util.Locale/setDefault java.util.Locale/ENGLISH)
          (init-logging)
@@ -246,7 +246,7 @@
             "begin" (apply ~begin-name# (rest arguments#))
             "exec"  (apply ~exec-name# (rest arguments#))
             "purge" (apply ~purge-name# (rest arguments#))
-            "info" 
+            "info"
               (let [output# (:output ~args)
                     output-base# (:base output#)
                     output-delimiter# (:delimiter output#)
@@ -257,8 +257,8 @@
                         input-delimiter# (:delimiter input#)
                         new-input# (assoc input# :base (str "\"" input-base# "\"") :delimiter (str "\"" input-delimiter# "\""))]
                     (println (assoc (dissoc ~args :query :prepare :final)
-                             :output new-output# :input new-input# :desc (str "\"" ~description# "\"") :cron (str "\"" ~cron# "\""))))   
+                             :output new-output# :input new-input# :desc (str "\"" ~description# "\"") :cron (str "\"" ~cron# "\""))))
                   (println (assoc (dissoc ~args :query :prepare :final)
-                           :output new-output# :desc (str "\"" ~description# "\"") :cron (str "\"" ~cron# "\""))))) 
-            (println "unknown task command!")) 
+                           :output new-output# :desc (str "\"" ~description# "\"") :cron (str "\"" ~cron# "\"")))))
+            (println "unknown task command!"))
           ))))))
