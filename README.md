@@ -1,25 +1,37 @@
 hebo
 =====
 
-A framework to develop Hadoop data processing task and manage their dependency in runtime.
+A framework to develop Hadoop data processing tasks and manage their dependency in runtime.
 
 * A dataflow scheduler based on cascalog for Hadoop tasks dependent each other.
 * A DSL with an elegant way to write a single Hadoop data processing task.
 
-## Core Concepts
+Design concepts
+----------------
 
-Time series data can come in yearly, monthly or even daily and hourly depends on your requirements. Hebo system provides you a elegant way to deal with complex various transform of those different data granularities throughout workflows.
+In practice, time series data can be managed in different time-granularities, such as yearly, monthly, daily or hourly depends on your requirements. If data are organized in some kind of file system, there exist 3 kind of granularities for a data processing task:
 
-Suppose you have 3 tasks A,B,C, and they have following restrictions:
+ * input granularity: the granularity level of the whole data inside the input file
+ * output granularity: the granularity level of the whole data inside the output file
+ * data granularity: the granularity level of one line of data inside the output file
 
-| taskname |   dependency | input-granu | output-granu | data-granu |      params     |
+Considering the runtime dependency between tasks, we realy need a scheduler to handle all the tasks.
+
+Hebo is just such a scheduler solution combined with a DSL to simplify the development.
+
+Example
+--------
+
+Suppose we have 3 tasks - A,B,C, and they follows below relationship:
+
+| taskname |   dependency | input-granu | output-granu | data-granu |      params    |
 |:--------:|:------------:|:-----------:|:------------:|:----------:|:--------------:|
 | A        |      null    | daily       | daily        | hourly     |[year month day]|
 | B        |        A     | daily       | monthly      | daily      |[year month]    |
 | C        |        B     | monthly     | daily        | daily      |[year month]    |
 
  
-Now I will show you changes of a example data marked with 2014-02-20T23:55:05+0800 throughout this workflow.
+And suppose an example data marked with 2014-02-20T23:55:05+0800 throughout this dataflow.
 
 1. A relies no tasks,so A can execute directly.the input-granu of A is daily,so its parameter may contains 2014 02 30,then data-granu of A is hourly,so 2014-02-20T23:55:05+0800 will be changed to 2014-02-20T23:00:00+0800,at last the output-granu is daily,so the output of A will gather all data of 2014-02-20 into a file.So final output file contains 2014-02-20T23:00:00+0800, 2014-02-20T22:00:00+0800, 2014-02-20T21:00:00+0800 and so on. 
 
