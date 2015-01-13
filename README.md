@@ -1,18 +1,22 @@
 hebo
-====
+=====
 
-A workflow scheduler system for time series data to manage Apache Hadoop jobs based on cascalog
+A framework to develop Hadoop data processing task and manage their dependency in runtime.
+
+* A dataflow scheduler based on cascalog for Hadoop tasks dependent each other.
+* A DSL with an elegant way to write a single Hadoop data processing task.
 
 ## Core Concepts
-Time series data can come in yearly,monthly or even daily and hourly depends on your requirements.Hebo system provides you a elegant way to deal with complex various transform of those different data granularities throughout workflows.
 
-Suppose you have 3 tasks A,B,C,and they have following restrictions:
+Time series data can come in yearly, monthly or even daily and hourly depends on your requirements. Hebo system provides you a elegant way to deal with complex various transform of those different data granularities throughout workflows.
 
-| taskname | rely   | input-granu | output-granu | data-granu |      param     |
-|:--------:|:------:|:-----------:|:------------:|:----------:|:--------------:|
-| A        | null   | daily       | daily        | hourly     |[year month day]|
-| B        |   A    | daily       | monthly      | daily      |[year month]    |
-| C        |   B    | monthly     | daily        | daily      |[year month]    |
+Suppose you have 3 tasks A,B,C, and they have following restrictions:
+
+| taskname |   dependency | input-granu | output-granu | data-granu |      params     |
+|:--------:|:------------:|:-----------:|:------------:|:----------:|:--------------:|
+| A        |      null    | daily       | daily        | hourly     |[year month day]|
+| B        |        A     | daily       | monthly      | daily      |[year month]    |
+| C        |        B     | monthly     | daily        | daily      |[year month]    |
 
  
 Now I will show you changes of a example data marked with 2014-02-20T23:55:05+0800 throughout this workflow.
